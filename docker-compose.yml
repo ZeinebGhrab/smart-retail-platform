@@ -1,0 +1,63 @@
+version: "3.9"
+
+# ============================================================
+# ShopAnalytics — Ollama LLM Benchmark Stack
+# Usage : docker compose up -d
+# ============================================================
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: shopanalytics-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama           # persistance des modèles
+      - ./scripts:/workspace/scripts          # scripts Python montés
+      - ./dataset:/workspace/dataset          # dataset de test
+      - ./results:/workspace/results          # résultats JSON
+    environment:
+      - OLLAMA_NUM_PARALLEL=1                 # 1 requête à la fois pour benchmark propre
+      - OLLAMA_MAX_LOADED_MODELS=1            # éviter le swap de modèles
+      - OLLAMA_KEEP_ALIVE=10m
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Service one-shot : pull les modèles puis lance le benchmark
+  benchmark:
+    image: python:3.11-slim
+    container_name: shopanalytics-benchmark
+    depends_on:
+      ollama:
+        condition: service_healthy
+    volumes:
+      - ./scripts:/workspace/scripts
+      - ./dataset:/workspace/dataset
+      - ./results:/workspace/results
+    working_dir: /workspace
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+      - PYTHONUNBUFFERED=1
+    command: >
+      bash -c "
+        pip install -q requests colorama tabulate &&
+        python scripts/pull_models.py &&
+        python scripts/benchmark.py
+      "
+    restart: "no"
+
+volumes:
+  ollama_models:
+    name: shopanalytics_ollama_models
