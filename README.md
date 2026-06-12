@@ -15,15 +15,24 @@ Ce projet automatise la sélection du meilleur modèle LLM local pour ShopAnalyt
 
 ```
 shopanalytics-llm-bench/
-├── docker-compose.yml                  # Stack Ollama + benchmark runner
+├── docker-compose.yml                  # Stack Ollama + benchmark + agent RAG
 ├── Makefile                            # Commandes rapides (Linux/Mac)
 ├── run.bat                             # Commandes rapides (Windows)
 ├── scripts/
 │   ├── config.py                       # Paramètres : VRAM, modèles, seuils, inférence
 │   ├── pull_models.py                  # Filtrage VRAM + pull des modèles Ollama
 │   └── benchmark.py                    # Mesures TTFT, throughput, JSON, anti-hallucination
+├── app/
+│   ├── visitor_data.py                 # Lecture SA-data.xlsx + prédiction visiteurs
+│   ├── visitor_agent.py                # Agent RAG (tool calling + fallback KB)
+│   ├── vector_store.py                 # Couche base vectorielle (Chroma)
+│   └── requirements.txt
+├── data/
+│   └── SA-data.xlsx                    # Historique visiteurs (Per_Day / Per_Hour)
 ├── dataset/
-│   └── tool_calling_queries.json       # 50 requêtes métier ShopAnalytics (FR + AR)
+│   ├── tool_calling_queries.json       # 50 requêtes métier ShopAnalytics (FR + AR)
+│   └── knowledge_base.json             # FAQ / définitions métier (indexées Chroma)
+├── vector_db/                          # Index vectoriel Chroma (généré, persistant)
 └── results/                            # Rapports JSON générés automatiquement
 ```
 
@@ -265,7 +274,102 @@ Le tableau suivant compare les trois modèles évalués par ce benchmark (`scrip
 
 ---
 
-## 13. Notes et conseils
+## 14. Agent chatbot RAG — Visiteurs & Base de connaissances (Sprint 1)
+
+À partir des modèles validés au Sprint 0, le dossier `app/` ajoute un **agent RAG** combinant :
+
+1. **Tool calling structuré** sur les données réelles de fréquentation
+   (`data/SA-data.xlsx`, feuilles `Per_Day` / `Per_Hour`) ;
+2. **Base vectorielle (ChromaDB + embeddings `all-MiniLM-L6-v2`)** pour
+   répondre aux questions générales / définitions métier qui ne
+   correspondent à aucun outil chiffré (FAQ, politiques, glossaire).
+
+### 14.1 Structure ajoutée
+
+```
+shopanalytics-llm-bench/
+├── app/
+│   ├── visitor_data.py     # Lecture SA-data.xlsx + prédiction visiteurs
+│   ├── visitor_agent.py     # Agent RAG (tool calling Ollama + fallback KB)
+│   ├── vector_store.py      # Couche base vectorielle (Chroma)
+│   └── requirements.txt
+├── data/
+│   └── SA-data.xlsx          # Historique réel des visiteurs (Per_Day / Per_Hour)
+├── dataset/
+│   └── knowledge_base.json   # FAQ / définitions métier indexées dans Chroma
+└── vector_db/                 # Index Chroma persistant (généré, monté en volume)
+```
+
+### 14.2 Outils disponibles pour l'agent
+
+| Outil | Usage | Source |
+|---|---|---|
+| `get_visitor_count(date, camera)` | Nombre de visiteurs réel pour une date/caméra | `SA-data.xlsx` (Per_Day) |
+| `get_hourly_visitor_flow(date, camera)` | Flux horaire de visiteurs | `SA-data.xlsx` (Per_Hour) |
+| `forecast_visitors(target_date, camera)` | Prévision de visiteurs (régression + ajustement jour) | `SA-data.xlsx` (Per_Day) |
+| `search_knowledge_base(query)` | Recherche sémantique (définitions, politiques, FAQ) | `vector_db/` (Chroma) |
+
+### 14.3 Modèle de prévision (`forecast_visitors`)
+
+- **< 7 jours d'historique** (cas actuel : 1 seule date) → le modèle
+  retourne `model_status: "non_entraine"`, `confidence: "faible"`, et
+  utilise la dernière valeur connue comme repli, avec un message
+  explicite invitant à enrichir `SA-data.xlsx`.
+- **≥ 7 jours d'historique** → régression linéaire (tendance) +
+  ajustement par jour de semaine (moyenne des résidus), recalculée
+  automatiquement à chaque appel — aucune réindexation manuelle requise.
+
+### 14.4 Base vectorielle — démarrage rapide
+
+```bash
+# Linux/Mac
+make reindex                                  # construit l'index Chroma depuis dataset/knowledge_base.json
+make ask Q="Combien de visiteurs hier ?"
+make ask Q="Quelle est la définition du taux de conversion ?"
+
+# Windows
+run.bat reindex
+run.bat ask "Combien de visiteurs hier ?"
+run.bat ask "Quelle est la définition du taux de conversion ?"
+```
+
+L'index Chroma est persisté dans `vector_db/` (volume Docker) et n'a
+besoin d'être reconstruit qu'après modification de
+`dataset/knowledge_base.json`. L'agent reconstruit automatiquement
+l'index au premier appel s'il est vide.
+
+### 14.5 Logique de routage de l'agent (`visitor_agent.py`)
+
+```
+Requête utilisateur
+   │
+   ▼
+LLM (Ollama, modèle eligible_models.json) → {"tool": ..., "parameters": {...}}
+   │
+   ├─ JSON valide + outil "visiteurs" → exécution sur SA-data.xlsx
+   ├─ JSON valide + "search_knowledge_base" → recherche Chroma
+   └─ JSON invalide / Ollama indisponible → fallback :
+        ├─ mots-clés "prévi/prédi/demain" → forecast_visitors
+        ├─ mots-clés "horaire/flux/heure" → get_hourly_visitor_flow
+        ├─ mots-clés "visiteur/visite"     → get_visitor_count
+        └─ sinon                            → search_knowledge_base (sémantique)
+```
+
+Ce double niveau (tool calling LLM + fallback déterministe) garantit
+qu'une réponse pertinente est toujours retournée, même si le modèle
+local renvoie un JSON malformé (taux observé : ~94% sur Llama 3.2 3B,
+voir section 7).
+
+### 14.6 Service Docker `agent`
+
+Le service `agent` (voir `docker-compose.yml`) installe les dépendances
+Python (`pandas`, `chromadb`, `sentence-transformers`, etc.), construit
+l'index vectoriel au démarrage, puis reste actif pour exécuter des
+requêtes ponctuelles via `docker compose run --rm agent ...`.
+
+---
+
+## 15. Notes et conseils
 
 - Sur GPU ≤ 6 Go, seuls Llama 3.2 3B et Qwen 2.5 7B passent le filtre VRAM — ajuster `VRAM_AVAILABLE_GB` en conséquence.
 - Augmenter `N_RUNS` (ex. 5 ou 10) pour des mesures plus stables sur du matériel partagé.

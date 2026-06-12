@@ -9,6 +9,8 @@ REM   run.bat logs        → Logs Ollama en live
 REM   run.bat status      → Statut des containers
 REM   run.bat down        → Arrête tout
 REM   run.bat clean       → Supprime les résultats JSON
+REM   run.bat reindex     → (Re)construit la base vectorielle (FAQ)
+REM   run.bat ask "..."   → Pose une question à l'agent RAG (visiteurs + FAQ)
 REM ============================================================
 
 SET CMD=%1
@@ -21,9 +23,11 @@ IF "%CMD%"=="logs" GOTO LOGS
 IF "%CMD%"=="status" GOTO STATUS
 IF "%CMD%"=="down" GOTO DOWN
 IF "%CMD%"=="clean" GOTO CLEAN
+IF "%CMD%"=="reindex" GOTO REINDEX
+IF "%CMD%"=="ask" GOTO ASK
 
 echo [ERREUR] Commande inconnue : %CMD%
-echo Usage : run.bat [up^|ollama^|bench^|logs^|status^|down^|clean]
+echo Usage : run.bat [up^|ollama^|bench^|logs^|status^|down^|clean^|reindex^|ask]
 EXIT /B 1
 
 :UP
@@ -73,6 +77,17 @@ GOTO END
 echo Suppression des resultats...
 IF EXIST results\*.json del /Q results\*.json
 echo Fait.
+GOTO END
+
+:REINDEX
+echo (Re)construction de la base vectorielle (FAQ)...
+docker compose run --rm agent bash -c "pip install -q -r requirements.txt && python vector_store.py --reindex"
+GOTO END
+
+:ASK
+SET Q=%~2
+echo Question : %Q%
+docker compose run --rm agent bash -c "pip install -q -r requirements.txt && python visitor_agent.py \"%Q%\""
 GOTO END
 
 :END

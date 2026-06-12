@@ -28,6 +28,11 @@ import requests
 
 from visitor_data import load_data, get_visitor_count, get_hourly_visitor_flow, forecast_visitors
 
+try:
+    from vector_store import semantic_search
+except ImportError:  # chromadb non installé / non requis pour les tests purs visiteurs
+    semantic_search = None
+
 ROOT = Path(__file__).resolve().parent.parent
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 
@@ -68,13 +73,29 @@ Outils disponibles :
    - "target_date": format YYYY-MM-DD ou null pour demain
    - Utilise cet outil pour : "prévision", "prédire", "combien de visiteurs demain/la semaine prochaine"
 
+4. search_knowledge_base(query)
+   - "query": la question reformulée
+   - Utilise cet outil pour toute question GÉNÉRALE/DÉFINITION ne portant pas
+     sur un chiffre précis du jour (ex : "qu'est-ce que le taux de conversion ?",
+     "quels sont les horaires du magasin ?", "quelles caméras sont installées ?")
+
 Réponds uniquement avec le JSON, sans texte additionnel.
 """
+
+
+def _search_kb_tool(query: str, data: dict | None = None) -> dict:
+    """Wrapper outil : recherche sémantique dans la base vectorielle (KB)."""
+    if semantic_search is None:
+        return {"error": "Base vectorielle indisponible (chromadb non installé)."}
+    hits = semantic_search(query, n_results=2)
+    return {"query": query, "results": hits}
+
 
 TOOL_FUNCS = {
     "get_visitor_count": get_visitor_count,
     "get_hourly_visitor_flow": get_hourly_visitor_flow,
     "forecast_visitors": forecast_visitors,
+    "search_knowledge_base": _search_kb_tool,
 }
 
 
@@ -155,8 +176,6 @@ def answer_query(user_query: str, model: str | None = None) -> dict:
         raw = f"(Ollama indisponible : {e})"
 
     if call is None:
-        # Fallback heuristique sans LLM (mots-clés) si Ollama indisponible
-        # ou réponse JSON invalide -> robustesse type "anti-hallucination"
         q = user_query.lower()
         if "prévi" in q or "prédi" in q or "prochain" in q or "demain" in q:
             result = forecast_visitors(data=data)
@@ -164,9 +183,13 @@ def answer_query(user_query: str, model: str | None = None) -> dict:
         elif "horaire" in q or "flux" in q or "heure" in q:
             result = get_hourly_visitor_flow(data=data)
             tool_used = "get_hourly_visitor_flow (fallback mots-clés)"
-        else:
+        elif "visiteur" in q or "visite" in q:
             result = get_visitor_count(data=data)
             tool_used = "get_visitor_count (fallback mots-clés)"
+        else:
+            # Question générale -> fallback sémantique sur la base vectorielle
+            result = _search_kb_tool(user_query)
+            tool_used = "search_knowledge_base (fallback sémantique)"
         return {"tool_used": tool_used, "llm_raw": raw, "result": result, "model": model}
 
     result = run_tool(call, data)

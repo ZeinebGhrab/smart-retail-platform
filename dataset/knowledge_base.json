@@ -1,0 +1,42 @@
+[
+  {
+    "id": "kb-001",
+    "title": "Horaires d'ouverture du magasin",
+    "content": "Le magasin Anavid Store 360 est ouvert du lundi au samedi de 09h00 à 20h00, et le dimanche de 09h00 à 13h00. Fermeture exceptionnelle pour inventaire le 11 juin 2026 (0 vente, 0 personnel)."
+  },
+  {
+    "id": "kb-002",
+    "title": "Définition du taux de conversion",
+    "content": "Le taux de conversion est le pourcentage de visiteurs qui effectuent un achat. Il se calcule comme : (nombre de transactions / nombre de visiteurs) x 100. Un taux faible peut indiquer un problème de merchandising, de prix ou de disponibilité produit."
+  },
+  {
+    "id": "kb-003",
+    "title": "Définition du panier moyen",
+    "content": "Le panier moyen correspond au chiffre d'affaires total divisé par le nombre de transactions sur une période donnée. C'est un indicateur clé de la performance commerciale, à suivre en complément du nombre de visiteurs."
+  },
+  {
+    "id": "kb-004",
+    "title": "Caméras de comptage installées",
+    "content": "Le magasin dispose de deux caméras de comptage de visiteurs : Porte_sud (entrée principale, côté parking) et Porte_nord (entrée secondaire, côté galerie). Chaque caméra enregistre le nombre de passages par heure ainsi que la répartition par genre et tranche d'âge (enfant, adolescent, adulte, senior)."
+  },
+  {
+    "id": "kb-005",
+    "title": "Procédure d'alerte stock critique",
+    "content": "Une alerte de stock critique est déclenchée lorsque la quantité disponible d'un SKU descend sous le seuil de réassort défini par rayon. Le responsable de rayon doit valider une commande de réapprovisionnement dans les 24 heures suivant l'alerte."
+  },
+  {
+    "id": "kb-006",
+    "title": "Politique de confidentialité des données retail",
+    "content": "Toutes les données de ventes, de fréquentation et de personnel sont traitées localement via le LLM Ollama embarqué (Qwen 2.5 7B ou Llama 3.2 3B selon la VRAM disponible). Aucune donnée n'est envoyée vers un service cloud externe, conformément aux exigences de confidentialité d'Anavid Store 360."
+  },
+  {
+    "id": "kb-007",
+    "title": "Interprétation du flux horaire de visiteurs",
+    "content": "Le flux horaire de visiteurs représente le nombre de passages détectés par heure, toutes caméras confondues ou par caméra. Les heures de pointe typiques se situent en matinée (08h-10h) et en fin d'après-midi (16h-19h). Une chute brutale peut indiquer une fermeture exceptionnelle, un incident ou un jour férié."
+  },
+  {
+    "id": "kb-008",
+    "title": "Limites du modèle de prévision de visiteurs",
+    "content": "Le modèle de prévision de visiteurs (forecast_visitors) nécessite au minimum 7 jours d'historique distincts dans Per_Day pour activer la régression linéaire avec ajustement par jour de semaine. En dessous de ce seuil, le système retourne la dernière valeur connue avec un statut 'non_entraine' et une confiance 'faible'."
+  }
+]

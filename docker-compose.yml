@@ -1,5 +1,3 @@
-version: "3.9"
-
 # ============================================================
 # ShopAnalytics — Ollama LLM Benchmark Stack
 # Usage : docker compose up -d
@@ -55,6 +53,31 @@ services:
         pip install -q requests colorama tabulate &&
         python scripts/pull_models.py &&
         python scripts/benchmark.py
+      "
+    restart: "no"
+
+  # Agent chatbot RAG (visiteurs + base vectorielle FAQ)
+  # Usage : docker compose run --rm agent python visitor_agent.py "Combien de visiteurs hier ?"
+  agent:
+    image: python:3.11-slim
+    container_name: shopanalytics-agent
+    depends_on:
+      ollama:
+        condition: service_healthy
+    volumes:
+      - ./app:/workspace/app
+      - ./data:/workspace/data
+      - ./dataset:/workspace/dataset
+      - ./vector_db:/workspace/vector_db        # persistance de la base vectorielle Chroma
+    working_dir: /workspace/app
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+      - PYTHONUNBUFFERED=1
+    command: >
+      bash -c "
+        pip install -q -r requirements.txt &&
+        python vector_store.py --reindex &&
+        tail -f /dev/null
       "
     restart: "no"
 
