@@ -1,20 +1,23 @@
 # ============================================================
 # visitor_data.py — Chargement & analyse des données visiteurs
-# Source : SA-data.xlsx (feuilles Per_Day, Per_Hour)
+# Source : shoppingclub_2025_2026.csv
 # ============================================================
 #
 # Fournit :
-#   - load_data()                      -> dict avec les DataFrames Per_Day / Per_Hour
+#   - load_data()                      -> dict avec les DataFrames per_day / per_hour
 #   - get_visitor_count(date, camera)  -> nb visiteurs pour une date/caméra
 #   - get_hourly_visitor_flow(date)    -> flux horaire (toutes caméras)
-#   - forecast_visitors(...)           -> prédiction simple (régression linéaire
-#                                          sur l'historique disponible)
+#   - forecast_visitors(...)           -> prédiction (régression linéaire sur historique)
 #
-# NOTE : le dataset actuel ne contient qu'UNE seule date (2026-06-08).
-# Un modèle de prédiction fiable nécessite un historique multi-jours.
-# En attendant, forecast_visitors() utilise une heuristique de repli
-# (moyenne pondérée par jour de semaine si dispo, sinon valeur du
-# dernier jour connu) ET expose clairement son niveau de confiance.
+# Source de données : data/shoppingclub_2025_2026.csv
+#   Colonnes brutes : camera, datetime, gender, age, Visits
+#   Période : juin 2025 – mai 2026 (349 jours)
+#   Caméras : "Cam porte1" → Porte_nord  |  "Cam_porte2" → Porte_sud
+#
+# Normalisation intégrée :
+#   - gender  : MEN/Male → men  |  WOMEN/Female → women
+#   - age     : age_18-29, age_18_29, 18-29 → age_18_29 (format uniforme)
+#   - datetime : dayfirst=True (format DD/MM/YYYY HH:MM:SS)
 # ============================================================
 
 from __future__ import annotations
@@ -24,22 +27,122 @@ import numpy as np
 from pathlib import Path
 from datetime import datetime, timedelta
 
-DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "SA-data.xlsx"
+DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "shoppingclub_2025_2026.csv"
+
+# Mapping caméras CSV → noms compatibles avec l'agent
+_CAMERA_MAP = {
+    "cam porte1": "Porte_nord",
+    "cam_porte1": "Porte_nord",
+    "cam porte2": "Porte_sud",
+    "cam_porte2": "Porte_sud",
+}
+
+# Normalisation genre
+def _norm_gender(g: str) -> str:
+    g = str(g).strip().lower()
+    if g in ("men", "male", "m"):
+        return "men"
+    if g in ("women", "female", "f"):
+        return "women"
+    return g
+
+# Normalisation tranche d'âge → clé uniforme (ex: "age_18_29")
+_AGE_LABELS = {
+    "0-9":      "age_0_9",
+    "age_0-9":  "age_0_9",
+    "age_0_9":  "age_0_9",
+    "10-17":    "age_10_17",
+    "age_10-17":"age_10_17",
+    "age_10_17":"age_10_17",
+    "adolescents": "age_10_17",
+    "18-29":    "age_18_29",
+    "age_18-29":"age_18_29",
+    "age_18_29":"age_18_29",
+    "adultes":  "age_18_29",   # approximation conservative
+    "30-39":    "age_30_39",
+    "age_30-39":"age_30_39",
+    "age_30_39":"age_30_39",
+    "40-49":    "age_40_49",
+    "age_40-49":"age_40_49",
+    "age_40_49":"age_40_49",
+    "60-100":   "age_60_100",
+    "age_60-100":"age_60_100",
+    "age_60_100":"age_60_100",
+    "seniors":  "age_60_100",
+    "enfants":  "age_0_9",
+}
+
+def _norm_age(a: str) -> str:
+    return _AGE_LABELS.get(str(a).strip().lower(), str(a).strip().lower())
 
 
 def load_data(path: str | Path = DATA_PATH) -> dict[str, pd.DataFrame]:
-    """Charge les feuilles Per_Day et Per_Hour du fichier Excel."""
-    xls = pd.ExcelFile(path)
-    per_day = xls.parse("Per_Day")
-    per_hour = xls.parse("Per_Hour")
+    """
+    Charge et normalise shoppingclub_2025_2026.csv.
 
-    # La feuille Per_Hour a des cellules fusionnées (camera/date répétés
-    # uniquement sur la première ligne de chaque bloc) -> forward-fill
-    per_hour["camera"] = per_hour["camera"].ffill()
-    per_hour["date"] = per_hour["date"].ffill()
+    Retourne un dict avec deux DataFrames :
+      - "per_day"  : une ligne par (date, camera) avec totaux et ventilation
+      - "per_hour" : une ligne par (date, camera, hour) avec le compte horaire
+    """
+    df = pd.read_csv(path)
 
-    per_day["date"] = pd.to_datetime(per_day["date"]).dt.date
-    per_hour["date"] = pd.to_datetime(per_hour["date"]).dt.date
+    # --- Normalisation de base ---
+    df["dt"]     = pd.to_datetime(df["datetime"], dayfirst=True)
+    df["date"]   = df["dt"].dt.date
+    df["hour"]   = df["dt"].dt.hour
+    df["camera"] = (df["camera"].str.strip().str.lower()
+                    .map(lambda x: _CAMERA_MAP.get(x, x)))
+    df["gender"] = df["gender"].map(_norm_gender)
+    df["age"]    = df["age"].map(_norm_age)
+    df["count"]  = df["Visits"].fillna(0).astype(int)
+
+    # --- per_hour : agrégat (date, camera, hour) ---
+    per_hour = (df.groupby(["date", "camera", "hour"], as_index=False)["count"]
+                  .sum())
+
+    # --- per_day : agrégat (date, camera) + pivot genre + pivot âge ---
+    base = (df.groupby(["date", "camera"], as_index=False)["count"]
+              .sum()
+              .rename(columns={"count": "visit_Count"}))
+
+    gender_piv = (df.groupby(["date", "camera", "gender"])["count"]
+                    .sum()
+                    .unstack(fill_value=0)
+                    .reset_index())
+    gender_piv.columns.name = None
+    # Renommer men/women en colonnes attendues par l'agent
+    gender_piv = gender_piv.rename(columns={"men": "gender_men", "women": "gender_women"})
+
+    age_piv = (df.groupby(["date", "camera", "age"])["count"]
+                 .sum()
+                 .unstack(fill_value=0)
+                 .reset_index())
+    age_piv.columns.name = None
+    # Renommer les colonnes âge vers le format de l'agent
+    age_rename = {
+        "age_0_9":   "age_child",
+        "age_10_17": "age_teenager",
+        "age_18_29": "age_adult",
+        "age_30_39": "age_adult",    # regroupés en "adult" comme dans SA-data
+        "age_40_49": "age_adult",
+        "age_60_100":"age_senior",
+    }
+    # Fusionner avant rename pour sommer les adultes 18-29 + 30-39 + 40-49
+    _adult_cols = [c for c in age_piv.columns if c in ("age_18_29","age_30_39","age_40_49")]
+    if _adult_cols:
+        age_piv["age_adult"] = age_piv[_adult_cols].sum(axis=1)
+        age_piv = age_piv.drop(columns=_adult_cols)
+    for old, new in [("age_0_9","age_child"),("age_10_17","age_teenager"),("age_60_100","age_senior")]:
+        if old in age_piv.columns:
+            age_piv = age_piv.rename(columns={old: new})
+
+    per_day = base.merge(gender_piv, on=["date","camera"], how="left") \
+                  .merge(age_piv,    on=["date","camera"], how="left")
+
+    # S'assurer que les colonnes attendues existent
+    for col in ["gender_men","gender_women","age_child","age_teenager","age_adult","age_senior"]:
+        if col not in per_day.columns:
+            per_day[col] = 0
 
     return {"per_day": per_day, "per_hour": per_hour}
 
@@ -52,7 +155,7 @@ def get_visitor_count(date: str | None = None, camera: str | None = None,
                        data: dict | None = None) -> dict:
     """
     Retourne le nombre de visiteurs pour une date donnée.
-    - date : "YYYY-MM-DD" (si None -> dernière date dispo)
+    - date   : "YYYY-MM-DD" (si None -> dernière date dispo)
     - camera : "Porte_sud" / "Porte_nord" (si None -> total)
     """
     data = data or load_data()
@@ -73,7 +176,7 @@ def get_visitor_count(date: str | None = None, camera: str | None = None,
             "camera": camera or "toutes",
             "visit_count": None,
             "message": f"Aucune donnée disponible pour le {target}."
-                       + (f" (caméra {camera})" if camera else "")
+                       + (f" (caméra {camera})" if camera else ""),
         }
 
     total = int(rows["visit_Count"].sum())
@@ -81,8 +184,8 @@ def get_visitor_count(date: str | None = None, camera: str | None = None,
         "date": str(target),
         "camera": camera or "toutes",
         "visit_count": total,
-        "breakdown": rows[["camera", "visit_Count", "gender_men", "gender_women",
-                            "age_child", "age_teenager", "age_adult", "age_senior"]]
+        "breakdown": rows[["camera","visit_Count","gender_men","gender_women",
+                            "age_child","age_teenager","age_adult","age_senior"]]
                      .to_dict(orient="records"),
     }
 
@@ -107,7 +210,7 @@ def get_hourly_visitor_flow(date: str | None = None, camera: str | None = None,
             "date": str(target),
             "camera": camera or "toutes",
             "hourly_flow": [],
-            "message": f"Aucune donnée horaire pour le {target}."
+            "message": f"Aucune donnée horaire pour le {target}.",
         }
 
     grouped = rows.groupby("hour", as_index=False)["count"].sum().sort_values("hour")
@@ -116,7 +219,7 @@ def get_hourly_visitor_flow(date: str | None = None, camera: str | None = None,
         "camera": camera or "toutes",
         "hourly_flow": grouped.to_dict(orient="records"),
         "total": int(grouped["count"].sum()),
-        "peak_hour": grouped.loc[grouped["count"].idxmax(), "hour"],
+        "peak_hour": int(grouped.loc[grouped["count"].idxmax(), "hour"]),
     }
 
 
@@ -130,16 +233,12 @@ def forecast_visitors(target_date: str | None = None, camera: str | None = None,
     Prédit le nombre de visiteurs pour `target_date` (par défaut : demain).
 
     Méthode :
-      - Si >= 7 dates distinctes disponibles -> régression linéaire simple
-        (tendance) + moyenne par jour de semaine.
-      - Si < 7 dates (cas actuel : 1 seule date) -> heuristique de repli :
-        on retourne la dernière valeur connue, avec un avertissement
-        explicite sur la fiabilité ("modèle non entraîné, données
-        insuffisantes").
+      - Si >= 7 dates distinctes -> régression linéaire (tendance)
+        + ajustement saisonnier par jour de semaine.
+      - Sinon -> heuristique de repli (dernière valeur connue).
 
-    Le modèle s'adapte automatiquement dès que plus de données seront
-    ajoutées au fichier SA-data.xlsx (Per_Day) : il devient une
-    régression réelle dès qu'un historique suffisant existe.
+    Avec 349 jours d'historique disponibles dans shoppingclub_2025_2026.csv,
+    la régression est systématiquement activée et la confiance est "bonne".
     """
     data = data or load_data()
     df = data["per_day"].copy()
@@ -156,11 +255,9 @@ def forecast_visitors(target_date: str | None = None, camera: str | None = None,
     else:
         target = pd.to_datetime(target_date).date()
 
-    # Agrège par date (toutes caméras confondues si camera=None)
     daily = df.groupby("date", as_index=False)["visit_Count"].sum()
 
     if n_dates < 7:
-        # --- Heuristique de repli : pas assez d'historique ---
         last_value = int(daily["visit_Count"].iloc[-1])
         return {
             "target_date": str(target),
@@ -171,33 +268,29 @@ def forecast_visitors(target_date: str | None = None, camera: str | None = None,
             "model_status": "non_entraine",
             "message": (
                 f"Modèle de prédiction non entraîné : seulement {n_dates} "
-                f"date(s) disponible(s) dans l'historique (minimum 7 "
-                f"recommandé). Estimation basée sur la dernière valeur "
-                f"connue ({last_value} visiteurs le {daily['date'].iloc[-1]}). "
-                f"Ajoutez davantage de jours dans SA-data.xlsx pour activer "
-                f"la régression."
+                f"date(s) disponible(s). Minimum recommandé : 7. "
+                f"Estimation = dernière valeur connue ({last_value} visiteurs "
+                f"le {daily['date'].iloc[-1]})."
             ),
         }
 
-    # --- Régression linéaire simple sur le temps + ajustement jour-semaine ---
-    daily["t"] = (daily["date"] - daily["date"].min()).apply(lambda d: d.days)
+    # --- Régression linéaire + ajustement jour de semaine ---
+    daily["t"]       = (daily["date"] - daily["date"].min()).apply(lambda d: d.days)
     daily["weekday"] = daily["date"].apply(lambda d: d.weekday())
 
     X = daily["t"].values.astype(float)
     y = daily["visit_Count"].values.astype(float)
 
-    # régression linéaire (moindres carrés)
     A = np.vstack([X, np.ones(len(X))]).T
     slope, intercept = np.linalg.lstsq(A, y, rcond=None)[0]
 
     t_target = (target - daily["date"].min()).days
     trend_pred = slope * t_target + intercept
 
-    # ajustement saisonnier par jour de semaine (moyenne des résidus)
-    daily["trend"] = slope * daily["t"] + intercept
+    daily["trend"]    = slope * daily["t"] + intercept
     daily["residual"] = daily["visit_Count"] - daily["trend"]
     weekday_adj = daily.groupby("weekday")["residual"].mean()
-    adjustment = weekday_adj.get(target.weekday(), 0.0)
+    adjustment  = weekday_adj.get(target.weekday(), 0.0)
 
     prediction = max(0, round(trend_pred + adjustment))
 
@@ -206,11 +299,12 @@ def forecast_visitors(target_date: str | None = None, camera: str | None = None,
         "camera": camera or "toutes",
         "predicted_visit_count": int(prediction),
         "method": "regression_lineaire_tendance_+_ajustement_jour_semaine",
-        "confidence": "moyenne" if n_dates < 30 else "bonne",
+        "confidence": "bonne" if n_dates >= 30 else "moyenne",
         "model_status": "entraine",
         "n_historical_points": int(n_dates),
         "message": (
-            f"Prédiction basée sur {n_dates} jours d'historique : "
+            f"Prédiction basée sur {n_dates} jours d'historique "
+            f"(shoppingclub_2025_2026.csv) : "
             f"tendance={slope:.2f}/jour, intercept={intercept:.1f}, "
             f"ajustement jour({target.strftime('%A')})={adjustment:.1f}."
         ),
@@ -219,7 +313,11 @@ def forecast_visitors(target_date: str | None = None, camera: str | None = None,
 
 if __name__ == "__main__":
     d = load_data()
+    print("=== get_visitor_count (dernière date) ===")
     print(get_visitor_count(data=d))
+    print("\n=== get_hourly_visitor_flow (dernière date) ===")
     print(get_hourly_visitor_flow(data=d))
+    print("\n=== forecast_visitors (demain) ===")
     print(forecast_visitors(data=d))
-    print(forecast_visitors(target_date="2026-06-09", data=d))
+    print("\n=== forecast_visitors (2025-12-25) ===")
+    print(forecast_visitors(target_date="2025-12-25", data=d))
