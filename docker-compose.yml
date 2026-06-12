@@ -29,7 +29,10 @@ services:
               count: all
               capabilities: [gpu]
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      # NOTE : l'image ollama/ollama ne contient pas curl/wget.
+      # On utilise le binaire "ollama" lui-même (déjà présent dans l'image),
+      # qui interroge l'API locale via "ollama list".
+      test: ["CMD-SHELL", "ollama list || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5

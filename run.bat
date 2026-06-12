@@ -34,8 +34,10 @@ docker compose up -d ollama
 IF ERRORLEVEL 1 (echo [ERREUR] Impossible de demarrer Ollama. & EXIT /B 1)
 
 echo Attente Ollama pret...
+REM NOTE : l'image ollama/ollama ne contient pas curl, donc on teste
+REM depuis l'hote (curl.exe est natif sur Windows 10/11) via le port expose.
 :WAIT_LOOP
-docker compose exec ollama curl -sf http://localhost:11434/api/tags >NUL 2>&1
+curl -sf http://localhost:11434/api/tags >NUL 2>&1
 IF ERRORLEVEL 1 (
     timeout /t 2 /nobreak >NUL
     GOTO WAIT_LOOP

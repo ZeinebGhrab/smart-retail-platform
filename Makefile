@@ -8,7 +8,7 @@
 up:
 	docker compose up -d ollama
 	@echo "⏳ Attente Ollama prêt..."
-	@until docker compose exec ollama curl -sf http://localhost:11434/api/tags > /dev/null; do sleep 2; done
+	@until curl -sf http://localhost:11434/api/tags > /dev/null; do sleep 2; done
 	@echo "✅ Ollama prêt."
 	docker compose run --rm benchmark
 
