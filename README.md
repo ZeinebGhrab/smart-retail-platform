@@ -294,7 +294,8 @@ shopanalytics-llm-bench/
 │   ├── vector_store.py      # Couche base vectorielle (Chroma)
 │   └── requirements.txt
 ├── data/
-│   └── SA-data.xlsx          # Historique réel des visiteurs (Per_Day / Per_Hour)
+│   ├── SA-data.xlsx          # Historique réel des visiteurs (Per_Day / Per_Hour)
+│   └── shoppingclub_2025_2026.csv # Historique réel des visiteurs (Per_Day / Per_Hour) pendant un an
 ├── dataset/
 │   └── knowledge_base.json   # FAQ / définitions métier indexées dans Chroma
 └── vector_db/                 # Index Chroma persistant (généré, monté en volume)

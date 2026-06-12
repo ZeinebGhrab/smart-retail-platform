@@ -1,5 +1,5 @@
 # ============================================================
-# ShopAnalytics — Ollama LLM Benchmark Stack
+# ShopAnalytics — Ollama LLM Benchmark Stack + anavidApp
 # Usage : docker compose up -d
 # ============================================================
 
@@ -11,13 +11,13 @@ services:
     ports:
       - "11434:11434"
     volumes:
-      - ollama_models:/root/.ollama           # persistance des modèles
-      - ./scripts:/workspace/scripts          # scripts Python montés
-      - ./dataset:/workspace/dataset          # dataset de test
-      - ./results:/workspace/results          # résultats JSON
+      - ollama_models:/root/.ollama
+      - ./scripts:/workspace/scripts
+      - ./dataset:/workspace/dataset
+      - ./results:/workspace/results
     environment:
-      - OLLAMA_NUM_PARALLEL=1                 # 1 requête à la fois pour benchmark propre
-      - OLLAMA_MAX_LOADED_MODELS=1            # éviter le swap de modèles
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_MAX_LOADED_MODELS=1
       - OLLAMA_KEEP_ALIVE=10m
     deploy:
       resources:
@@ -57,7 +57,6 @@ services:
     restart: "no"
 
   # Agent chatbot RAG (visiteurs + base vectorielle FAQ)
-  # Usage : docker compose run --rm agent python visitor_agent.py "Combien de visiteurs hier ?"
   agent:
     image: python:3.11-slim
     container_name: shopanalytics-agent
@@ -68,7 +67,7 @@ services:
       - ./app:/workspace/app
       - ./data:/workspace/data
       - ./dataset:/workspace/dataset
-      - ./vector_db:/workspace/vector_db        # persistance de la base vectorielle Chroma
+      - ./vector_db:/workspace/vector_db
     working_dir: /workspace/app
     environment:
       - OLLAMA_HOST=http://ollama:11434
@@ -81,6 +80,25 @@ services:
       "
     restart: "no"
 
+  # ── Frontend Ionic React — dev (hot-reload) ─────────────────
+  # Démarrer seul : docker compose up frontend
+  # Accès           : http://localhost:5173
+  # ────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend       
+    container_name: shopanalytics-anavidapp
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app                          # hot-reload : code source en live
+      - shopanalytics_node_modules:/app/node_modules   # node_modules isolé dans un volume
+    environment:
+      - NODE_ENV=development
+    restart: unless-stopped
+
 volumes:
   ollama_models:
     name: shopanalytics_ollama_models
+  shopanalytics_node_modules:
+    name: shopanalytics_node_modules
