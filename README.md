@@ -236,7 +236,36 @@ Chaque entrée définit `expected_tool` et `expected_keys`, permettant une valid
 
 ---
 
-## 12. Notes et conseils
+## 12. Comparaison des modèles LLM candidats
+
+Le tableau suivant compare les trois modèles évalués par ce benchmark (`scripts/config.py`) selon les critères pertinents pour ShopAnalytics. À titre de référence, une colonne **Cloud (GPT-3.5 / GPT-4)** est ajoutée pour situer le choix « LLM local via Ollama » par rapport à une solution propriétaire.
+
+| Critère | Qwen 2.5 7B (q4_K_M) | Mistral 7B v0.3 (q4_K_M) | Llama 3.2 3B (q4_K_M) | GPT-3.5 / GPT-4 (référence cloud) |
+|---|---|---|---|---|
+| **Architecture** | Transformer decoder-only, open-source | Transformer decoder-only, open-source | Transformer decoder-only, open-source, léger | Transformer propriétaire (API cloud) |
+| **Déploiement** | Local (Ollama / Docker) | Local (Ollama / Docker) | Local (Ollama / Docker) | Cloud API (payant, dépendance externe) |
+| **VRAM requise (q4_K_M)** | 6.9 Go | 6.9 Go | 4.1 Go | N/A (calcul délégué au fournisseur) |
+| **Latence (TTFT, seuil benchmark)** | Faible — cible < 1.5 s | Très faible — cible < 1.5 s | Très faible — cible < 1.5 s | Variable selon réseau et charge |
+| **Throughput (seuil benchmark)** | Cible > 20 t/s | Cible > 20 t/s | Cible > 20 t/s (souvent le plus rapide) | Variable selon réseau |
+| **Multilingue (FR / AR / EN)** | Très bon (FR/AR solides) | Bon (FR/EN, AR plus faible) | Correct (FR/EN, AR limité) | Excellent |
+| **Confidentialité des données** | Totale (aucune donnée transmise) | Totale (aucune donnée transmise) | Totale (aucune donnée transmise) | Données envoyées vers le cloud |
+| **Capacité de raisonnement** | Élevée | Moyenne à élevée | Moyenne | Très élevée |
+| **JSON Tool Calling (test dataset)** | Très fiable (cible > 95 %) | Fiable mais moins stable sur AR | Correct, plus d'erreurs de structure | Très fiable |
+| **Personnalisation (fine-tuning)** | Facile (Modelfile Ollama / LoRA) | Facile (Modelfile Ollama / LoRA) | Facile (Modelfile Ollama / LoRA) | Non disponible (modèles fermés) |
+| **Coût** | Gratuit (matériel local) | Gratuit (matériel local) | Gratuit (matériel local) | Payant à l'usage (par token) |
+
+> *Table : Comparaison des modèles LLM candidats — ShopAnalytics Benchmark (Sprint 0)*
+
+### Recommandation
+
+- **Qwen 2.5 7B** est le candidat privilégié si la VRAM disponible est ≥ 6.9 Go : meilleur compromis FR/AR + tool calling.
+- **Mistral 7B v0.3** est une alternative valable pour le débit, au prix d'une fiabilité JSON légèrement inférieure sur les requêtes en arabe.
+- **Llama 3.2 3B** reste le choix de repli sur matériel contraint (≤ 5.5 Go de VRAM, comme dans la configuration testée), avec une dégradation attendue sur le score JSON Tool Calling et le raisonnement métier.
+- La solution **cloud (GPT-3.5/4)** n'est pas retenue pour ShopAnalytics en raison de l'exigence de **confidentialité totale des données retail** (ventes, personnel, sécurité) imposée par Anavid Store 360.
+
+---
+
+## 13. Notes et conseils
 
 - Sur GPU ≤ 6 Go, seuls Llama 3.2 3B et Qwen 2.5 7B passent le filtre VRAM — ajuster `VRAM_AVAILABLE_GB` en conséquence.
 - Augmenter `N_RUNS` (ex. 5 ou 10) pour des mesures plus stables sur du matériel partagé.
