@@ -95,12 +95,12 @@ question utilisateur
 
 #### Les 4 outils exposés au LLM
 
-| Outil                      | Quand l'utiliser                                  |
-|-----------------------------|---------------------------------------------------|
-| `get_visitor_count`          | "combien de visiteurs..."                          |
-| `get_hourly_visitor_flow`     | "flux horaire...", "heure de pointe"               |
-| `forecast_visitors`           | "prévision", "demain", "prédire"                   |
-| `search_knowledge_base`        | questions générales/définitions (FAQ métier)        |
+| Outil                      | Quand l'utiliser                              |
+|----------------------------|-----------------------------------------------|
+| `get_visitor_count`        | "combien de visiteurs..."                     |
+| `get_hourly_visitor_flow`  | "flux horaire...", "heure de pointe"          |
+| `forecast_visitors`        | "prévision", "demain", "prédire"              |
+| `search_knowledge_base`    | questions générales/définitions (FAQ métier)  |
 
 #### Pourquoi ce double niveau (LLM + fallback) ?
 
