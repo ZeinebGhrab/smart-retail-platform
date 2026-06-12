@@ -48,8 +48,12 @@ def vram_required_gb(params_b: float) -> float:
 INFERENCE_OPTIONS = {
     "temperature": 0.1,    # faible = plus déterministe pour tool calling
     "top_p": 0.9,
-    "num_ctx": 4096,       # contexte de test (augmenter pour test de latency penalty)
-    "num_predict": 256,    # tokens max générés par requête
+    "num_ctx": 4096,       # contexte de test
+    # FIX : 256 tronquait les réponses JSON complexes. 512 ne suffisait pas
+    # pour 4 requêtes avec date_range, time_range ou tableaux imbriqués.
+    # 1024 couvre tous les cas du dataset sans impact sur le throughput
+    # (réponses JSON réelles ~50-200 tokens, loin de la limite).
+    "num_predict": 1024,
 }
 
 # Nombre de répétitions par test pour moyenner les résultats

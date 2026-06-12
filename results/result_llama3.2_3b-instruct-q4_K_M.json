@@ -1,90 +1,55 @@
 {
   "model_id": "llama3.2:3b-instruct-q4_K_M",
   "label": "Llama 3.2 3B (q4_K_M)",
-  "timestamp": "2026-06-12T00:59:42.381123",
+  "timestamp": "2026-06-12T01:33:52.515249",
   "ttft_throughput": {
-    "ttft_avg": 0.33,
-    "ttft_min": 0.266,
-    "throughput_avg": 69.7,
-    "throughput_max": 72.1
+    "ttft_avg": 0.238,
+    "ttft_min": 0.224,
+    "throughput_avg": 69.9,
+    "throughput_max": 70.9
   },
   "tool_calling": {
     "total_queries": 50,
-    "valid_json": 0,
-    "valid_json_pct": 0.0,
-    "valid_tool_structure": 0,
-    "valid_tool_pct": 0.0,
+    "valid_json": 47,
+    "valid_json_pct": 94.0,
+    "valid_tool_structure": 47,
+    "valid_tool_pct": 94.0,
     "errors": [
       {
-        "id": 1,
+        "id": 17,
         "reason": "invalid_json",
-        "raw": "Je suis désolé, mais je ne peux pas accéder à des informations futures ou prévisibles, car mon derni"
+        "raw": "{\n  \"tool\": \"Sales Promotion Analyzer\",\n  \"parameters\": {\n    \"promotion_id\": \"PROMO-20%\",\n    \"date"
       },
       {
-        "id": 2,
+        "id": 41,
         "reason": "invalid_json",
-        "raw": "Je suis désolé, mais je ne peux pas fournir des informations en temps réel sur les ventes actuelles."
+        "raw": "{\n  \"tool\": \"Sales Report\",\n  \"parameters\": {\n    \"date\": \"2026-06-07T10:00:00\",\n    \"time_range\": \""
       },
       {
-        "id": 3,
+        "id": 49,
         "reason": "invalid_json",
-        "raw": "Je suis désolé, mais je ne peux pas accéder à des informations spécifiques sur les visitateurs du ma"
-      },
-      {
-        "id": 4,
-        "reason": "invalid_json",
-        "raw": "Je suis désolé, mais je ne peux pas afficher les chiffres d'affaires spécifiques pour un mois donné "
-      },
-      {
-        "id": 5,
-        "reason": "invalid_json",
-        "raw": "Je suis désolé, mais je ne peux pas fournir une liste des promotions actuelles en temps réel, car me"
-      },
-      {
-        "id": 6,
-        "reason": "invalid_json",
-        "raw": "Je suis désolé, mais je ne peux pas fournir des informations en temps réel ou spécifiques sur les ta"
-      },
-      {
-        "id": 7,
-        "reason": "invalid_json",
-        "raw": "Je ne peux pas fournir des informations en temps réel ou des alertes de stock critiques pour un rayo"
-      },
-      {
-        "id": 8,
-        "reason": "invalid_json",
-        "raw": "Je suis désolé, mais je ne peux pas fournir des informations sur les ventes futures, y compris celle"
-      },
-      {
-        "id": 9,
-        "reason": "invalid_json",
-        "raw": "Je ne suis pas en mesure de partager des informations en temps réel ou à venir. Je peux vous aider a"
-      },
-      {
-        "id": 10,
-        "reason": "invalid_json",
-        "raw": "Je ne peux pas accéder à l'information de votre localisation."
+        "raw": "{\n  \"tool\": \"SalesByVendor\",\n  \"parameters\": {\n    \"dateRange\": \"[2023-06-01, 2023-06-30]\"\n  }"
       }
     ]
   },
   "anti_hallucination": {
-    "response": "Bonjour ! Je suis ravi de vous aider.\n\nSelon les informations fournies, voici les détails du jour :\n\n* Ventes du jour : 0 € (magasin fermé pour inventaire)\n* Météo à Sfax : il n'y a pas d'information sur la météo, car il neige à Sfax. Cependant, le message précédent indique que c'est ensoleillé.\n\nIl",
+    "response": "Je suis désolé, mais je dois corriger une erreur dans votre question.\n\nIl n'a pas neigé à Sfax le 11 juin 2026, car il fait 38°C et soleil. Il est donc probablement très chaud et ensoleillé.\n\nEn ce qui concerne les ventes, le magasin a réalisé 0 vente car il était fermé pour inventaire.",
     "mentions_correct_sales": true,
-    "invented_snow": true,
+    "invented_snow": false,
     "mentions_correct_weather": true,
-    "hallucination_free": false
+    "hallucination_free": true
   },
   "context_latency": {
-    "throughput_short_ctx": 69.7,
-    "throughput_long_ctx": 57.7,
-    "degradation_pct": 17.2
+    "throughput_short_ctx": 67.8,
+    "throughput_long_ctx": 57.1,
+    "degradation_pct": 15.8
   },
   "scoring": {
-    "score_100": 50,
+    "score_100": 98,
     "ttft_pass": true,
     "throughput_pass": true,
     "json_pass": false,
-    "hallucination_free": false,
+    "hallucination_free": true,
     "recommended": false
   }
 }
