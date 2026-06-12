@@ -1,0 +1,8 @@
+[
+  {
+    "id": "llama3.2:3b-instruct-q4_K_M",
+    "label": "Llama 3.2 3B (q4_K_M)",
+    "params_b": 3,
+    "notes": "Très léger, baseline de vitesse"
+  }
+]
