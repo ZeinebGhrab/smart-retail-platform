@@ -44,9 +44,19 @@ from datetime import datetime
 from pathlib import Path
 
 # Ajouter le dossier django_api au path pour importer rag_pipeline
+# NB: selon le conteneur depuis lequel ce script est lancé, le code
+# Django ne se trouve pas forcément au même endroit :
+#   - conteneur "django_api" : code monté sur /app
+#   - lancement local        : backend/django_api (sibling de scripts/)
 _BACKEND = Path(__file__).resolve().parent.parent
-_DJANGO  = _BACKEND / "django_api"
-sys.path.insert(0, str(_DJANGO))
+_CANDIDATES = [
+    _BACKEND / "django_api",
+    Path("/app"),
+]
+for _candidate in _CANDIDATES:
+    if (_candidate / "history" / "rag_pipeline.py").exists():
+        sys.path.insert(0, str(_candidate))
+        break
 
 try:
     from history.rag_pipeline import (
