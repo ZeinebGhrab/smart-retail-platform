@@ -92,6 +92,23 @@ services:
       "
     restart: "no"
 
+  # ── Backend Django — API historique / analytics ──────────────
+  # Accès : http://localhost:8000/api/history/...
+  django_api:
+    build:
+      context: ./backend
+      dockerfile: django_api/Dockerfile
+    container_name: shopanalytics-django-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/django_api:/app
+      - ./backend/data:/app/data
+    environment:
+      - DJANGO_DEBUG=true
+      - VISITOR_DATA_CSV=/app/data/shoppingclub_2025_2026.csv
+    restart: unless-stopped
+
   # ── Frontend Ionic React — dev (hot-reload) ──────────────────
   # Accès : http://localhost:5173
   frontend:
