@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "drf_spectacular",
     "corsheaders",
     "history",
 ]
@@ -118,6 +119,21 @@ REST_FRAMEWORK = {
         "rest_framework.renderers.JSONRenderer",
         "rest_framework.renderers.BrowsableAPIRenderer",
     ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+# ------------------------------------------------------------
+# Documentation API — Swagger / OpenAPI (drf-spectacular)
+# Accessible sur /api/docs/ (Swagger UI) et /api/schema/ (OpenAPI JSON)
+# ------------------------------------------------------------
+SPECTACULAR_SETTINGS = {
+    "TITLE": "ShopAnalytics — API Historique Visiteurs",
+    "DESCRIPTION": (
+        "API REST exposant l'historique des visiteurs / données analytics "
+        "issues du fichier shoppingclub_2025_2026.csv (Anavid Smart Retail Platform)."
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
 }
 
 # ------------------------------------------------------------

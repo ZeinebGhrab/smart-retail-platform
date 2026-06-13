@@ -3,24 +3,34 @@
 # Source de données : data/shoppingclub_2025_2026.csv
 # ============================================================
 
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from . import visitor_data as vd
 
+_DATE_PARAM = OpenApiParameter(
+    "date", str, description="Date au format YYYY-MM-DD (par défaut : dernière date disponible)."
+)
+_START_DATE_PARAM = OpenApiParameter(
+    "start_date", str, description="Date de début (YYYY-MM-DD), incluse."
+)
+_END_DATE_PARAM = OpenApiParameter(
+    "end_date", str, description="Date de fin (YYYY-MM-DD), incluse."
+)
+_CAMERA_PARAM = OpenApiParameter(
+    "camera", str, description="Filtrer par caméra : 'Porte_nord' ou 'Porte_sud' (par défaut : toutes, agrégées)."
+)
 
+
+@extend_schema(
+    tags=["Historique visiteurs"],
+    summary="Historique journalier des visiteurs",
+    description="Retourne l'historique journalier des visiteurs (analytics) avec ventilation par genre et âge.",
+    parameters=[_START_DATE_PARAM, _END_DATE_PARAM, _CAMERA_PARAM],
+)
 @api_view(["GET"])
 def visitor_history(request):
-    """
-    GET /api/history/visitors/
-
-    Historique journalier des visiteurs (analytics).
-
-    Query params (optionnels) :
-      - start_date : "YYYY-MM-DD"
-      - end_date   : "YYYY-MM-DD"
-      - camera     : "Porte_nord" | "Porte_sud" (sinon: total des deux)
-    """
     start_date = request.query_params.get("start_date")
     end_date = request.query_params.get("end_date")
     camera = request.query_params.get("camera")
@@ -29,18 +39,14 @@ def visitor_history(request):
     return Response(result)
 
 
+@extend_schema(
+    tags=["Historique visiteurs"],
+    summary="Nombre de visiteurs pour une date donnée",
+    description="Retourne le nombre de visiteurs (et le détail genre/âge) pour une date donnée (par défaut : la dernière date disponible).",
+    parameters=[_DATE_PARAM, _CAMERA_PARAM],
+)
 @api_view(["GET"])
 def visitor_count(request):
-    """
-    GET /api/history/visitors/count/
-
-    Nombre de visiteurs pour une date donnée (par défaut la dernière
-    date disponible dans le CSV).
-
-    Query params (optionnels) :
-      - date   : "YYYY-MM-DD"
-      - camera : "Porte_nord" | "Porte_sud"
-    """
     date = request.query_params.get("date")
     camera = request.query_params.get("camera")
 
@@ -48,17 +54,14 @@ def visitor_count(request):
     return Response(result)
 
 
+@extend_schema(
+    tags=["Historique visiteurs"],
+    summary="Flux horaire de visiteurs",
+    description="Retourne le nombre de visiteurs par heure pour une date donnée, ainsi que l'heure de pointe.",
+    parameters=[_DATE_PARAM, _CAMERA_PARAM],
+)
 @api_view(["GET"])
 def hourly_flow(request):
-    """
-    GET /api/history/visitors/hourly/
-
-    Flux horaire de visiteurs pour une date donnée.
-
-    Query params (optionnels) :
-      - date   : "YYYY-MM-DD"
-      - camera : "Porte_nord" | "Porte_sud"
-    """
     date = request.query_params.get("date")
     camera = request.query_params.get("camera")
 
@@ -66,18 +69,17 @@ def hourly_flow(request):
     return Response(result)
 
 
+@extend_schema(
+    tags=["Prévisions"],
+    summary="Prévision du nombre de visiteurs",
+    description=(
+        "Prévoit le nombre de visiteurs pour une date donnée (par défaut : demain) via "
+        "régression linéaire sur l'historique + ajustement par jour de la semaine."
+    ),
+    parameters=[_DATE_PARAM, _CAMERA_PARAM],
+)
 @api_view(["GET"])
 def forecast(request):
-    """
-    GET /api/history/visitors/forecast/
-
-    Prévision du nombre de visiteurs (régression linéaire + ajustement
-    par jour de semaine).
-
-    Query params (optionnels) :
-      - date   : "YYYY-MM-DD" (par défaut : demain)
-      - camera : "Porte_nord" | "Porte_sud"
-    """
     date = request.query_params.get("date")
     camera = request.query_params.get("camera")
 
@@ -85,18 +87,20 @@ def forecast(request):
     return Response(result)
 
 
+@extend_schema(
+    tags=["Résumé"],
+    summary="KPIs globaux",
+    description="Retourne un résumé global : période couverte, total visiteurs, répartition par caméra / genre / tranche d'âge.",
+)
 @api_view(["GET"])
 def summary(request):
-    """
-    GET /api/history/summary/
-
-    KPIs globaux : période couverte, total visiteurs, répartition
-    par caméra / genre / tranche d'âge.
-    """
     return Response(vd.get_summary())
 
 
+@extend_schema(
+    tags=["Résumé"],
+    summary="Liste des caméras disponibles",
+)
 @api_view(["GET"])
 def cameras(request):
-    """GET /api/history/cameras/ — liste des caméras disponibles."""
     return Response({"cameras": vd.list_cameras()})
