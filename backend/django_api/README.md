@@ -2,7 +2,7 @@
 
 Ce dossier contient le **serveur API HTTP de ShopAnalytics**, exposé aux clients (frontend Ionic, intégrations tierces). Basé sur **Django 5 + Django REST Framework**, il fournit les endpoints analytiques visiteurs ainsi qu'un endpoint de chat RAG alimenté par Ollama.
 
-Contrairement à l'agent standalone `app/`, ce conteneur est **léger** : il délègue les embeddings directement à Ollama via HTTP (pas de `torch`, pas de `chromadb`, pas de `sentence-transformers`).
+Ce conteneur est **léger** : il délègue les embeddings directement à Ollama via HTTP (pas de `torch`, pas de `chromadb`, pas de `sentence-transformers`).
 
 ---
 
@@ -77,7 +77,303 @@ Pipeline RAG sans dépendances lourdes :
 ```
 
 ### `chat_view.py`
-Vue `POST /api/chat/` qui orchestre `rag_pipeline.py`. Accepte `{ "message": "...", "history": [...] }` et retourne `{ "response": "..." }`.
+Vue `POST /api/chat/` qui orchestre `rag_pipeline.py`. Accepte `{ "question": "..." }` et retourne `{ "answer": "...", "model": "...", "sources": {...} }`.
+
+---
+
+## Recherche approfondie — Pipeline RAG : frameworks, outils et paramètres
+
+### Qu'est-ce que le RAG ?
+
+**RAG (Retrieval-Augmented Generation)** est une architecture qui enrichit la génération de texte par un LLM avec des données externes récupérées dynamiquement. Au lieu de se reposer uniquement sur les connaissances mémorisées lors de l'entraînement, le modèle reçoit des extraits de contexte pertinents avant de formuler sa réponse.
+
+```
+Question utilisateur
+        │
+        ▼
+  [ Retriever ]  ────────────────────────────────────────────────────►┐
+  Recherche sémantique dans la base vectorielle                        │
+  (embedding de la question + cosine similarity)                       │
+                                                                       │
+  [ Augmentation ]  ◄────────────────────────────────────────────────┘
+  Construction du prompt : contexte récupéré + question               │
+                                                                       │
+  [ Generation ]                                                       │
+  LLM local (Llama 3.2 / Qwen 2.5 / Mistral via Ollama)              │
+        │                                                              │
+        ▼
+  Réponse enrichie et factuellement ancrée
+```
+
+---
+
+### Principaux frameworks RAG disponibles
+
+#### 1. LangChain
+
+Le framework le plus populaire pour construire des applications LLM complètes.
+
+**Fonctionnalités clés :**
+- Chargement de documents (PDF, Word, Excel, Web, bases de données, etc.)
+- Découpage de texte configurable (chunking) — `RecursiveCharacterTextSplitter`, `TokenTextSplitter`
+- Génération d'embeddings via OpenAI, HuggingFace, Ollama
+- Connexion native aux bases vectorielles : Qdrant, Chroma, FAISS, Weaviate, Pinecone
+- Chaînes RAG complètes (`RetrievalQA`, `ConversationalRetrievalChain`)
+- Agents IA avec tool calling
+- LangSmith pour l'observabilité et le débogage
+
+**Avantages :**
+- Écosystème très riche, grande communauté
+- Nombreuses intégrations prêtes à l'emploi
+- Compatible avec les modèles locaux (Ollama, llama.cpp)
+
+**Inconvénients :**
+- Abstraction parfois trop complexe pour les projets simples
+- Versioning instable, breaking changes fréquents
+
+**Exemple minimal (Python) :**
+```python
+from langchain_community.llms import Ollama
+from langchain_community.vectorstores import Qdrant
+from langchain.chains import RetrievalQA
+
+llm = Ollama(model="llama3.2:3b-instruct-q4_K_M")
+vectorstore = Qdrant.from_documents(docs, embeddings, url="http://localhost:6333")
+qa_chain = RetrievalQA.from_chain_type(llm=llm, retriever=vectorstore.as_retriever())
+response = qa_chain.run("Combien de visiteurs hier ?")
+```
+
+---
+
+#### 2. LlamaIndex
+
+Spécialisé dans l'indexation et la recherche de données structurées/non structurées pour les LLM.
+
+**Fonctionnalités clés :**
+- Ingestion de documents multiformats
+- Création d'index avancés : `VectorStoreIndex`, `SummaryIndex`, `KnowledgeGraphIndex`
+- Recherche sémantique fine
+- RAG optimisé pour des bases de connaissances larges
+- Sous-question decomposition, HyDE (Hypothetical Document Embeddings)
+
+**Avantages :**
+- Très performant pour le RAG documentaire
+- Facile à mettre en œuvre, API claire
+- Support natif d'Ollama
+
+**Cas d'usage :**
+- Chatbots documentaires d'entreprise
+- Assistants métier sur bases de connaissances
+- Recherche sémantique sur grands corpus
+
+---
+
+#### 3. Haystack (deepset)
+
+Framework open source orienté recherche documentaire et question answering industriel.
+
+**Fonctionnalités clés :**
+- Pipelines RAG modulaires et composables
+- Recherche hybride (BM25 lexical + Vector Search sémantique)
+- Support natif de Elasticsearch, OpenSearch, Qdrant, Weaviate, Chroma
+- Évaluation automatisée des pipelines RAG
+
+**Points forts :**
+- Excellente architecture pour les projets d'entreprise
+- Très adapté à la recherche documentaire à grande échelle
+- Bonne gestion de la recherche hybride dense+sparse
+
+---
+
+#### 4. DSPy (Stanford)
+
+Framework de recherche développé par des chercheurs de Stanford — paradigme différent des chaînes classiques.
+
+**Concept clé :**
+- Optimisation **automatique** des prompts via des algorithmes d'optimisation (BootstrapFewShot, MIPROv2)
+- Le développeur définit le **schéma** de raisonnement, DSPy optimise les prompts pour l'atteindre
+- Pipeline RAG traité comme un problème d'optimisation
+
+**Avantages :**
+- Résultats souvent supérieurs aux prompts écrits manuellement
+- Intéressant pour la recherche avancée et les cas nécessitant une précision maximale
+
+---
+
+#### 5. Semantic Kernel (Microsoft)
+
+Framework d'orchestration LLM de Microsoft, très adapté à l'écosystème Azure.
+
+**Fonctionnalités clés :**
+- Orchestration de plugins LLM
+- Agents IA avec mémoire persistante
+- RAG natif avec connecteurs Azure Cognitive Search
+- Support C#, Python, Java
+
+**Adapté à :**
+- Intégrations Microsoft 365 / Azure OpenAI
+- Projets d'entreprise dans l'écosystème Microsoft
+
+---
+
+### Comparaison synthétique
+
+| Framework | Points forts | Idéal pour | Complexité |
+|---|---|---|---|
+| **LangChain** | Richesse fonctionnelle, intégrations | Prototypage rapide, chatbots | Moyenne |
+| **LlamaIndex** | Performance RAG, indexation avancée | Chatbots documentaires, KB | Faible |
+| **Haystack** | Recherche hybride, pipelines modulaires | Entreprise, grands corpus | Élevée |
+| **DSPy** | Optimisation automatique des prompts | Recherche, précision maximale | Élevée |
+| **Semantic Kernel** | Écosystème Microsoft, agents | Azure, Microsoft 365 | Moyenne |
+
+---
+
+### Bases vectorielles associées au RAG
+
+Le retriever s'appuie sur une **base vectorielle** pour stocker et rechercher les embeddings :
+
+| Base vectorielle | Type | Points forts |
+|---|---|---|
+| **Qdrant** | Open source, self-hosted | Filtrage avancé, payload indexing, très rapide |
+| **Chroma** | Open source, embarqué | Facilité d'intégration, idéal pour le développement |
+| **Weaviate** | Open source, cloud-native | GraphQL, multimodalité, hybrid search |
+| **Milvus** | Open source, distribué | Scalabilité massive (milliards de vecteurs) |
+| **Pinecone** | SaaS managé | Zéro infrastructure, production clé en main |
+| **FAISS** | Bibliothèque locale | Ultra-rapide en mémoire, pas de persistance native |
+| **pgvector** | Extension PostgreSQL | Intégration SQL native, simple à opérer |
+
+> **Choix dans Anavid Store 360 :** la knowledge base ne contient que 8 documents, ce qui rend ChromaDB et Qdrant inutiles. Les embeddings sont calculés à la volée via `Ollama /api/embeddings` et la recherche cosinus est implémentée en Python pur — aucune dépendance externe lourde.
+
+---
+
+### Architecture RAG moderne (pipeline complet)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  PHASE D'INGESTION (offline)                                 │
+│                                                              │
+│  Documents (PDF, CSV, JSON, Web…)                           │
+│        │                                                     │
+│        ▼                                                     │
+│  Chunking (découpage en segments)                            │
+│  ├── Taille fixe : 512 tokens, overlap 50                   │
+│  ├── Sémantique : coupure aux frontières de paragraphes     │
+│  └── Hiérarchique : parent-child chunks (LlamaIndex)        │
+│        │                                                     │
+│        ▼                                                     │
+│  Embedding Model                                             │
+│  ├── all-MiniLM-L6-v2 (384 dim, rapide)                    │
+│  ├── text-embedding-3-small (OpenAI, 1536 dim)             │
+│  └── nomic-embed-text (Ollama, 768 dim)                     │
+│        │                                                     │
+│        ▼                                                     │
+│  Base Vectorielle (Qdrant / Chroma / FAISS…)                │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│  PHASE DE GÉNÉRATION (online / temps réel)                   │
+│                                                              │
+│  Question utilisateur                                        │
+│        │                                                     │
+│        ▼                                                     │
+│  Embedding de la question (même modèle que l'ingestion)     │
+│        │                                                     │
+│        ▼                                                     │
+│  Retriever                                                   │
+│  ├── Top-k : k=2 à 5 documents les plus similaires          │
+│  ├── Seuil de similarité : cosine ≥ 0.7 (configurable)     │
+│  ├── Recherche Dense (vecteurs)                              │
+│  └── Recherche Hybride : Dense + BM25 (sparse)              │
+│        │                                                     │
+│        ▼                                                     │
+│  Reranker (optionnel)                                        │
+│  └── Cross-encoder pour reclasser les résultats             │
+│        │                                                     │
+│        ▼                                                     │
+│  Prompt Builder                                              │
+│  ├── System prompt (rôle, contraintes, format)              │
+│  ├── Contexte récupéré (documents triés)                    │
+│  └── Question utilisateur                                    │
+│        │                                                     │
+│        ▼                                                     │
+│  LLM (Qwen 2.5 / Llama 3.2 / Mistral via Ollama)          │
+│        │                                                     │
+│        ▼                                                     │
+│  Réponse générée (JSON ou texte)                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Paramètres d'inférence LLM utilisés dans Anavid Store 360
+
+Le pipeline `rag_pipeline.py` utilise les paramètres suivants lors de l'appel à `Ollama /api/generate` :
+
+| Paramètre | Valeur | Rôle |
+|---|---|---|
+| `temperature` | `0.1` | Contrôle la créativité. Proche de 0 = réponses déterministes, factuelles. Idéal pour le RAG métier |
+| `top_p` | `0.9` | Nucleus sampling : sélectionne parmi les tokens couvrant 90 % de la probabilité cumulée. Filtre les tokens très improbables |
+| `num_ctx` | `4096` | Taille de la fenêtre de contexte (tokens). Détermine combien de texte le modèle peut "lire" en une fois (prompt + contexte + réponse) |
+| `num_predict` | `1024` | Nombre maximum de tokens à générer en sortie. 1024 couvre les réponses JSON complexes sans tronquer |
+
+#### Explication détaillée des paramètres d'échantillonnage
+
+**Temperature (`temperature`)**
+- Contrôle l'entropie de la distribution de probabilité des tokens
+- `0.0` → le modèle choisit toujours le token le plus probable (greedy decoding)
+- `1.0` → distribution originale du modèle
+- `> 1.0` → réponses plus aléatoires et créatives
+- **Recommandation RAG :** `0.0` à `0.3` pour des réponses factuelles ancrées dans le contexte
+
+**Top-p / Nucleus Sampling (`top_p`)**
+- À chaque étape de génération, seuls les tokens dont la probabilité cumulée dépasse `top_p` sont conservés
+- `top_p=0.9` : les tokens représentant 90 % de la masse de probabilité
+- Complémentaire à `temperature` — les deux s'appliquent ensemble
+- **Recommandation RAG :** `0.85` à `0.95`
+
+**Top-k (non utilisé ici)**
+- Limite la sélection aux `k` tokens les plus probables à chaque étape
+- Exemple : `top_k=40` → parmi les 40 tokens les plus probables
+- Moins flexible que `top_p` ; souvent utilisé combiné
+
+**Repeat Penalty (non configuré explicitement)**
+- Pénalise la répétition de tokens déjà générés
+- Valeurs typiques : `1.1` à `1.3`
+- Utile pour éviter les boucles dans les longues générations
+
+**num_ctx (Context Window)**
+- Définit la fenêtre de tokens que le modèle traite simultanément
+- Budget total = prompt system + contexte RAG + historique + réponse
+- `llama3.2:3b` supporte jusqu'à 128k tokens natifs, mais 4096 suffit pour le cas d'usage retail
+- Augmenter `num_ctx` consomme plus de VRAM
+
+#### Tableau récapitulatif des paramètres d'échantillonnage
+
+| Paramètre | Plage typique | Usage RAG | Usage créatif |
+|---|---|---|---|
+| `temperature` | 0.0 – 2.0 | 0.0 – 0.3 | 0.7 – 1.2 |
+| `top_p` | 0.0 – 1.0 | 0.85 – 0.95 | 0.9 – 1.0 |
+| `top_k` | 1 – 100 | 20 – 40 | 40 – 100 |
+| `repeat_penalty` | 1.0 – 1.5 | 1.1 – 1.2 | 1.0 – 1.1 |
+| `num_predict` | 64 – 4096 | 256 – 1024 | 512 – 2048 |
+
+---
+
+### Implémentation RAG dans Anavid Store 360 vs frameworks complets
+
+| Aspect | Anavid Store 360 (custom) | LangChain/LlamaIndex |
+|---|---|---|
+| **Dépendances** | `requests`, `pandas`, `numpy` uniquement | `langchain`, `sentence-transformers`, `chromadb`, `torch` (500+ Mo) |
+| **Image Docker** | ~200 Mo (python:3.11-slim) | ~800 Mo – 2 Go avec torch |
+| **Base vectorielle** | Cosine similarity Python pur (8 docs) | Qdrant / Chroma / FAISS |
+| **Embedding** | Ollama `/api/embeddings` (modèle déjà chargé) | Modèle sentence-transformers dédié |
+| **Retrieval** | Top-k=2 cosine similarity | Top-k configurable + reranking optionnel |
+| **Chunking** | Documents entiers (KB petite) | Chunking configurable (512 tokens, overlap 50) |
+| **Fallback** | Détection par mots-clés si Ollama indispo | Gestion d'erreurs LangChain |
+| **Observabilité** | Logs Django standard | LangSmith, traces intégrées |
+| **Adapté à** | KB petite, contraintes VRAM, production locale | Corpus larges, besoins évolués |
+
+> **Justification du choix custom :** avec seulement 8 documents dans la knowledge base et une contrainte de 5,5 Go de VRAM sur la machine cible, l'implémentation sans framework externe est la plus légère, la plus rapide à démarrer et la plus simple à maintenir. Un framework comme LangChain serait pertinent si la KB dépassait quelques centaines de documents ou nécessitait des stratégies de chunking avancées.
 
 ---
 
@@ -117,6 +413,8 @@ drf-spectacular      # génération OpenAPI / Swagger
 pandas, numpy        # traitement données CSV
 requests             # appels HTTP vers Ollama
 # ⚠️ PAS de torch / chromadb / sentence-transformers
+# → image Docker allégée de ~800 Mo à ~200 Mo
+# → embeddings délégués à Ollama (modèle déjà en VRAM)
 ```
 
-> L'absence de `torch` réduit l'image Docker de ~800 Mo à ~200 Mo et élimine les dépendances CUDA.
+> L'absence de `torch` réduit l'image Docker de ~800 Mo à ~200 Mo et élimine les dépendances CUDA, tout en maintenant des capacités RAG complètes grâce à la délégation des embeddings à Ollama.
