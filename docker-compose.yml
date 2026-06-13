@@ -3,13 +3,13 @@
 #
 # Structure :
 #   frontend/   → App Ionic React (Vite)
-#   backend/    → Agent RAG Python + Benchmark Ollama
+#   backend/    → API Django REST + RAG Ollama
 #
 # Commandes rapides :
 #   docker compose up frontend          → front seul (dev)
 #   docker compose up ollama            → LLM seul
 #   docker compose run --rm benchmark   → benchmark one-shot
-#   make ask Q="Combien de visiteurs ?" → interroger l'agent
+#   docker compose up django_api        → API seule
 # ============================================================
 
 services:
@@ -67,34 +67,10 @@ services:
       "
     restart: "no"
 
-  # ── Agent RAG (chatbot visiteurs + FAQ) ─────────────────────
-  # Usage : docker compose run --rm agent python visitor_agent.py "Question ?"
-  agent:
-    build:
-      context: ./backend
-    container_name: shopanalytics-agent
-    depends_on:
-      ollama:
-        condition: service_healthy
-    volumes:
-      - ./backend/app:/workspace/app
-      - ./backend/data:/workspace/data
-      - ./backend/dataset:/workspace/dataset
-      - ./backend/results:/workspace/results
-      - ./backend/vector_db:/workspace/vector_db
-    environment:
-      - OLLAMA_HOST=http://ollama:11434
-      - PYTHONUNBUFFERED=1
-    command: >
-      bash -c "
-        python vector_store.py --reindex &&
-        tail -f /dev/null
-      "
-    restart: "no"
-
-  # ── Backend Django — API historique / analytics + RAG ────────
-  # Accès : http://localhost:8000/api/
-  # Chat IA : POST http://localhost:8000/api/chat/
+  # ── Backend Django — API REST + RAG ─────────────────────────
+  # Accès    : http://localhost:8000/api/
+  # Swagger  : http://localhost:8000/api/docs/
+  # Chat RAG : POST http://localhost:8000/api/chat/
   django_api:
     build:
       context: ./backend
@@ -108,18 +84,12 @@ services:
     volumes:
       - ./backend/django_api:/app
       - ./backend/data:/app/data
-      # Partagé avec le conteneur agent : index vectoriel ChromaDB
-      - ./backend/vector_db:/app/vector_db
-      # Partagé avec le conteneur agent : knowledge_base.json
       - ./backend/dataset:/app/dataset
-      # Modèle retenu après benchmark
       - ./backend/results:/app/results
     environment:
       - DJANGO_DEBUG=true
       - VISITOR_DATA_CSV=/app/data/shoppingclub_2025_2026.csv
-      # Ollama accessible via le réseau Docker interne
       - OLLAMA_HOST=http://ollama:11434
-      # Modèle retenu lors du benchmark (eligible_models.json)
       - OLLAMA_MODEL=llama3.2:3b-instruct-q4_K_M
     restart: unless-stopped
 

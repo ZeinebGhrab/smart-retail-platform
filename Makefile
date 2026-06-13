@@ -1,16 +1,17 @@
 # ============================================================
-# Makefile — ShopAnalytics LLM Benchmark
+# Makefile — ShopAnalytics
 # ============================================================
 
-.PHONY: up down ollama bench frontend reindex ask logs status clean-results clean-all
+.PHONY: up down ollama bench django frontend api logs status clean-results clean-all
 
-# Lancer Ollama en background + benchmark complet
+# Ollama + benchmark + API Django + Frontend
 up:
 	docker compose up -d ollama
 	@echo "⏳ Attente Ollama prêt..."
 	@until curl -sf http://localhost:11434/api/tags > /dev/null; do sleep 2; done
 	@echo "✅ Ollama prêt."
 	docker compose run --rm benchmark
+	docker compose up -d django_api frontend
 
 # Lancer uniquement Ollama
 ollama:
@@ -20,26 +21,17 @@ ollama:
 bench:
 	docker compose run --rm benchmark
 
-# Lancer le frontend seul (hot-reload sur http://localhost:5173)
-frontend:
-	docker compose up frontend
-
-# Lancer l'API Django (historique visiteurs) seule (http://localhost:8000)
+# Lancer l'API Django seule (http://localhost:8000)
 django:
 	docker compose up --build django_api
 
 # Lancer Django + Frontend (sans Ollama)
-backend:
+api:
 	docker compose up --build django_api frontend
 
-# (Re)construire l'index de la base vectorielle
-reindex:
-	docker compose run --rm agent bash -c "python vector_store.py --reindex"
-
-# Poser une question à l'agent RAG
-# Usage : make ask Q="Combien de visiteurs hier ?"
-ask:
-	docker compose run --rm agent bash -c "python visitor_agent.py \"$(Q)\""
+# Lancer le frontend seul (http://localhost:5173)
+frontend:
+	docker compose up frontend
 
 # Logs Ollama en live
 logs:
