@@ -224,8 +224,61 @@ def get_hourly_visitor_flow(date: str | None = None, camera: str | None = None,
 
 
 # ------------------------------------------------------------
-# Prédiction du nombre de visiteurs
+# Historique journalier (pour l'agent RAG)
 # ------------------------------------------------------------
+
+def get_visitor_history(start_date: str | None = None, end_date: str | None = None,
+                         camera: str | None = None, n_days: int | None = None,
+                         data: dict | None = None) -> dict:
+    """
+    Retourne l'historique journalier des visiteurs.
+
+    - start_date / end_date : "YYYY-MM-DD" (bornes incluses, optionnelles)
+    - camera   : "Porte_nord" / "Porte_sud" (si None -> total des deux, agrégé par date)
+    - n_days   : si fourni (et pas de bornes de dates), limite aux n_days derniers
+                 jours disponibles (ex: 7 pour "la semaine dernière")
+    """
+    data = data or load_data()
+    df = data["per_day"].copy()
+
+    if camera:
+        df = df[df["camera"] == camera]
+
+    if start_date:
+        start = pd.to_datetime(start_date).date()
+        df = df[df["date"] >= start]
+    if end_date:
+        end = pd.to_datetime(end_date).date()
+        df = df[df["date"] <= end]
+
+    df = df.sort_values(["date", "camera"])
+
+    if not camera:
+        agg_cols = ["visit_Count", "gender_men", "gender_women",
+                     "age_child", "age_teenager", "age_adult", "age_senior"]
+        df = df.groupby("date", as_index=False)[agg_cols].sum()
+        df["camera"] = "toutes"
+
+    if not start_date and not end_date and n_days:
+        df = df.sort_values("date").tail(int(n_days))
+
+    df = df.sort_values("date")
+    df["date"] = df["date"].astype(str)
+
+    records = df.to_dict(orient="records")
+    total = int(df["visit_Count"].sum()) if not df.empty else 0
+
+    return {
+        "start_date": start_date,
+        "end_date": end_date,
+        "camera": camera or "toutes",
+        "n_days": len(records),
+        "total_visit_count": total,
+        "results": records,
+    }
+
+
+
 
 def forecast_visitors(target_date: str | None = None, camera: str | None = None,
                        data: dict | None = None) -> dict:

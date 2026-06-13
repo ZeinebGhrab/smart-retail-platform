@@ -26,7 +26,13 @@ from pathlib import Path
 
 import requests
 
-from visitor_data import load_data, get_visitor_count, get_hourly_visitor_flow, forecast_visitors
+from visitor_data import (
+    load_data,
+    get_visitor_count,
+    get_hourly_visitor_flow,
+    forecast_visitors,
+    get_visitor_history,
+)
 
 try:
     from vector_store import semantic_search
@@ -73,7 +79,15 @@ Outils disponibles :
    - "target_date": format YYYY-MM-DD ou null pour demain
    - Utilise cet outil pour : "prévision", "prédire", "combien de visiteurs demain/la semaine prochaine"
 
-4. search_knowledge_base(query)
+4. get_visitor_history(start_date, end_date, camera, n_days)
+   - "start_date" / "end_date": format YYYY-MM-DD ou null
+   - "camera": "Porte_sud", "Porte_nord" ou null pour le total
+   - "n_days": nombre entier (ex: 7) ou null. Si start_date/end_date sont null
+     et n_days est fourni, retourne les n_days derniers jours disponibles.
+   - Utilise cet outil pour : "historique", "évolution", "tendance",
+     "ces derniers jours/semaines/mois", "compare les jours précédents"
+
+5. search_knowledge_base(query)
    - "query": la question reformulée
    - Utilise cet outil pour toute question GÉNÉRALE/DÉFINITION ne portant pas
      sur un chiffre précis du jour (ex : "qu'est-ce que le taux de conversion ?",
@@ -95,6 +109,7 @@ TOOL_FUNCS = {
     "get_visitor_count": get_visitor_count,
     "get_hourly_visitor_flow": get_hourly_visitor_flow,
     "forecast_visitors": forecast_visitors,
+    "get_visitor_history": get_visitor_history,
     "search_knowledge_base": _search_kb_tool,
 }
 
@@ -180,6 +195,9 @@ def answer_query(user_query: str, model: str | None = None) -> dict:
         if "prévi" in q or "prédi" in q or "prochain" in q or "demain" in q:
             result = forecast_visitors(data=data)
             tool_used = "forecast_visitors (fallback mots-clés)"
+        elif "historique" in q or "évolution" in q or "tendance" in q or "derniers jours" in q or "dernière semaine" in q:
+            result = get_visitor_history(data=data, n_days=7)
+            tool_used = "get_visitor_history (fallback mots-clés)"
         elif "horaire" in q or "flux" in q or "heure" in q:
             result = get_hourly_visitor_flow(data=data)
             tool_used = "get_hourly_visitor_flow (fallback mots-clés)"
