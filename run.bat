@@ -8,6 +8,8 @@ REM   run.bat up        → Lance Ollama + benchmark complet (sans frontend)
 REM   run.bat ollama    → Lance uniquement Ollama
 REM   run.bat bench     → Lance uniquement le benchmark
 REM   run.bat frontend  → Lance uniquement le frontend
+REM   run.bat django    → Lance uniquement l'API Django (historique visiteurs)
+REM   run.bat backend   → Lance Django + Frontend (sans Ollama)
 REM   run.bat reindex   → (Re)construit la base vectorielle (FAQ)
 REM   run.bat ask "..." → Pose une question a l'agent RAG
 REM   run.bat logs      → Logs Ollama en live
@@ -26,6 +28,8 @@ IF "%CMD%"=="up"       GOTO UP
 IF "%CMD%"=="ollama"   GOTO OLLAMA
 IF "%CMD%"=="bench"    GOTO BENCH
 IF "%CMD%"=="frontend" GOTO FRONTEND
+IF "%CMD%"=="django"   GOTO DJANGO
+IF "%CMD%"=="backend"  GOTO BACKEND
 IF "%CMD%"=="reindex"  GOTO REINDEX
 IF "%CMD%"=="ask"      GOTO ASK
 IF "%CMD%"=="logs"     GOTO LOGS
@@ -142,6 +146,16 @@ GOTO END
 :FRONTEND
 echo Demarrage du frontend (http://localhost:5173)...
 docker compose up frontend
+GOTO END
+
+:DJANGO
+echo Demarrage de l'API Django (http://localhost:8000/api/)...
+docker compose up --build django_api
+GOTO END
+
+:BACKEND
+echo Demarrage Django (http://localhost:8000) + Frontend (http://localhost:5173)...
+docker compose up --build django_api frontend
 GOTO END
 
 :REINDEX

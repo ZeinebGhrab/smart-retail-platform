@@ -24,6 +24,14 @@ bench:
 frontend:
 	docker compose up frontend
 
+# Lancer l'API Django (historique visiteurs) seule (http://localhost:8000)
+django:
+	docker compose up --build django_api
+
+# Lancer Django + Frontend (sans Ollama)
+backend:
+	docker compose up --build django_api frontend
+
 # (Re)construire l'index de la base vectorielle
 reindex:
 	docker compose run --rm agent bash -c "python vector_store.py --reindex"
