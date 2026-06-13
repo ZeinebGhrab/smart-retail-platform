@@ -2,9 +2,9 @@
 # Makefile — ShopAnalytics LLM Benchmark
 # ============================================================
 
-.PHONY: up down bench logs clean status agent-build agent-shell reindex ask
+.PHONY: up down ollama bench frontend reindex ask logs status clean-results clean-all
 
-# Lancer Ollama en background + exécuter le benchmark complet
+# Lancer Ollama en background + benchmark complet
 up:
 	docker compose up -d ollama
 	@echo "⏳ Attente Ollama prêt..."
@@ -12,7 +12,7 @@ up:
 	@echo "✅ Ollama prêt."
 	docker compose run --rm benchmark
 
-# Lancer uniquement Ollama (sans benchmark)
+# Lancer uniquement Ollama
 ollama:
 	docker compose up -d ollama
 
@@ -20,16 +20,20 @@ ollama:
 bench:
 	docker compose run --rm benchmark
 
-# (Re)construire l'index de la base vectorielle (FAQ / connaissances métier)
-reindex:
-	docker compose run --rm agent bash -c "pip install -q -r requirements.txt && python vector_store.py --reindex"
+# Lancer le frontend seul (hot-reload sur http://localhost:5173)
+frontend:
+	docker compose up frontend
 
-# Poser une question à l'agent RAG (visiteurs + FAQ)
+# (Re)construire l'index de la base vectorielle
+reindex:
+	docker compose run --rm agent bash -c "python vector_store.py --reindex"
+
+# Poser une question à l'agent RAG
 # Usage : make ask Q="Combien de visiteurs hier ?"
 ask:
-	docker compose run --rm agent bash -c "pip install -q -r requirements.txt && python visitor_agent.py \"$(Q)\""
+	docker compose run --rm agent bash -c "python visitor_agent.py \"$(Q)\""
 
-# Voir les logs Ollama en live
+# Logs Ollama en live
 logs:
 	docker compose logs -f ollama
 
@@ -41,11 +45,11 @@ status:
 down:
 	docker compose down
 
-# Nettoyer résultats (garder les modèles)
+# Nettoyer résultats benchmark (garder les modèles)
 clean-results:
-	rm -f results/*.json
+	rm -f backend/results/*.json
 
 # Tout supprimer (volumes inclus — supprime les modèles téléchargés !)
 clean-all:
 	docker compose down -v
-	rm -f results/*.json
+	rm -f backend/results/*.json
