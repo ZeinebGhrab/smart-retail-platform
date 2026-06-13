@@ -1,0 +1,422 @@
+{
+  "generated_at": "2026-06-13T16:27:20.695150",
+  "config": {
+    "k": 2,
+    "model": "llama3.2:3b-instruct-q4_K_M",
+    "dry_run": true,
+    "dataset": "/workspace/scripts/rag_eval/eval_dataset.json"
+  },
+  "aggregate": {
+    "n_queries": 12,
+    "retriever": {
+      "precision@2": 0.375,
+      "recall@2": 0.75,
+      "mrr": 0.75,
+      "ndcg@2": 0.75,
+      "context_precision": 0.1667,
+      "context_recall": 0.0316
+    },
+    "generation": {
+      "exact_match": 0.0833,
+      "f1_score": 0.7714,
+      "bleu": 0.6203,
+      "rouge_l_f1": 0.7491,
+      "faithfulness": 0.0605,
+      "answer_relevancy": 0.4032
+    },
+    "latency_ms_avg": 0.0
+  },
+  "scoring": {
+    "score_100": 33.2,
+    "faithfulness_ok": false,
+    "relevancy_ok": false,
+    "context_recall_ok": false,
+    "retrieval_precision_ok": false
+  },
+  "details": [
+    {
+      "id": "eval-001",
+      "question": "Quels sont les horaires d'ouverture du magasin ?",
+      "category": "faq",
+      "relevant_source": "kb",
+      "ground_truth": "Le magasin est ouvert du lundi au samedi de 9h à 20h, et le dimanche de 10h à 18h.",
+      "answer": "Le magasin est ouvert du lundi au samedi de 9h à 20h et le dimanche de 10h à 18h.",
+      "retrieved_kb_ids": [
+        "kb-001"
+      ],
+      "relevant_kb_ids": [
+        "kb-001"
+      ],
+      "retriever_metrics": {
+        "precision@2": 0.5,
+        "recall@2": 1.0,
+        "mrr": 1.0,
+        "ndcg@2": 1.0,
+        "context_precision": 0.0,
+        "context_recall": 0.0
+      },
+      "generation_metrics": {
+        "exact_match": 1.0,
+        "f1_score": 1.0,
+        "bleu": 1.0,
+        "rouge_l_precision": 1.0,
+        "rouge_l_recall": 1.0,
+        "rouge_l_f1": 1.0,
+        "faithfulness": 0.0,
+        "answer_relevancy": 0.2
+      },
+      "latency_ms": 0.0
+    },
+    {
+      "id": "eval-002",
+      "question": "Comment est calculé le taux de conversion ?",
+      "category": "faq",
+      "relevant_source": "kb",
+      "ground_truth": "Le taux de conversion est le rapport entre le nombre d'acheteurs et le nombre total de visiteurs, exprimé en pourcentage.",
+      "answer": "Le taux de conversion correspond au rapport entre le nombre d'acheteurs et le nombre total de visiteurs, exprimé en pourcentage.",
+      "retrieved_kb_ids": [
+        "kb-002"
+      ],
+      "relevant_kb_ids": [
+        "kb-002"
+      ],
+      "retriever_metrics": {
+        "precision@2": 0.5,
+        "recall@2": 1.0,
+        "mrr": 1.0,
+        "ndcg@2": 1.0,
+        "context_precision": 0.0,
+        "context_recall": 0.0
+      },
+      "generation_metrics": {
+        "exact_match": 0.0,
+        "f1_score": 0.9048,
+        "bleu": 0.877,
+        "rouge_l_precision": 0.9048,
+        "rouge_l_recall": 0.9048,
+        "rouge_l_f1": 0.9048,
+        "faithfulness": 0.0,
+        "answer_relevancy": 0.5
+      },
+      "latency_ms": 0.0
+    },
+    {
+      "id": "eval-003",
+      "question": "Qu'est-ce que le panier moyen ?",
+      "category": "faq",
+      "relevant_source": "kb",
+      "ground_truth": "Le panier moyen est le chiffre d'affaires total divisé par le nombre de transactions réalisées sur une période donnée.",
+      "answer": "Le panier moyen est calculé en divisant le chiffre d'affaires par le nombre de transactions.",
+      "retrieved_kb_ids": [
+        "kb-003"
+      ],
+      "relevant_kb_ids": [
+        "kb-003"
+      ],
+      "retriever_metrics": {
+        "precision@2": 0.5,
+        "recall@2": 1.0,
+        "mrr": 1.0,
+        "ndcg@2": 1.0,
+        "context_precision": 0.0,
+        "context_recall": 0.0
+      },
+      "generation_metrics": {
+        "exact_match": 0.0,
+        "f1_score": 0.7222,
+        "bleu": 0.5732,
+        "rouge_l_precision": 0.8125,
+        "rouge_l_recall": 0.65,
+        "rouge_l_f1": 0.7222,
+        "faithfulness": 0.0,
+        "answer_relevancy": 1.0
+      },
+      "latency_ms": 0.0
+    },
+    {
+      "id": "eval-004",
+      "question": "Combien de caméras de comptage sont installées et où ?",
+      "category": "faq",
+      "relevant_source": "kb",
+      "ground_truth": "Deux caméras sont installées : Porte_nord et Porte_sud, aux entrées principales du magasin.",
+      "answer": "Deux caméras sont installées : Porte_nord et Porte_sud.",
+      "retrieved_kb_ids": [
+        "kb-004"
+      ],
+      "relevant_kb_ids": [
+        "kb-004"
+      ],
+      "retriever_metrics": {
+        "precision@2": 0.5,
+        "recall@2": 1.0,
+        "mrr": 1.0,
+        "ndcg@2": 1.0,
+        "context_precision": 0.0,
+        "context_recall": 0.0
+      },
+      "generation_metrics": {
+        "exact_match": 0.0,
+        "f1_score": 0.7368,
+        "bleu": 0.4895,
+        "rouge_l_precision": 1.0,
+        "rouge_l_recall": 0.5833,
+        "rouge_l_f1": 0.7368,
+        "faithfulness": 0.0,
+        "answer_relevancy": 0.6
+      },
+      "latency_ms": 0.0
+    },
+    {
+      "id": "eval-005",
+      "question": "Quelle est la procédure en cas de stock critique ?",
+      "category": "faq",
+      "relevant_source": "kb",
+      "ground_truth": "En cas de stock critique, une alerte est envoyée au responsable logistique pour réapprovisionner dans les 24 heures.",
+      "answer": "En cas de stock critique, une alerte est envoyée au responsable logistique pour réapprovisionner sous 24h.",
+      "retrieved_kb_ids": [
+        "kb-005"
+      ],
+      "relevant_kb_ids": [
+        "kb-005"
+      ],
+      "retriever_metrics": {
+        "precision@2": 0.5,
+        "recall@2": 1.0,
+        "mrr": 1.0,
+        "ndcg@2": 1.0,
+        "context_precision": 0.0,
+        "context_recall": 0.0
+      },
+      "generation_metrics": {
+        "exact_match": 0.0,
+        "f1_score": 0.8235,
+        "bleu": 0.7685,
+        "rouge_l_precision": 0.875,
+        "rouge_l_recall": 0.7778,
+        "rouge_l_f1": 0.8235,
+        "faithfulness": 0.0,
+        "answer_relevancy": 0.5
+      },
+      "latency_ms": 0.0
+    },
+    {
+      "id": "eval-006",
+      "question": "Comment interpréter le flux horaire des visiteurs ?",
+      "category": "faq",
+      "relevant_source": "kb",
+      "ground_truth": "Les pics de visites surviennent généralement entre 11h-13h et 16h-18h. Un flux faible le matin peut indiquer une affluence en après-midi.",
+      "answer": "Les pics de visites surviennent entre 11h-13h et 16h-18h.",
+      "retrieved_kb_ids": [
+        "kb-007"
+      ],
+      "relevant_kb_ids": [
+        "kb-007"
+      ],
+      "retriever_metrics": {
+        "precision@2": 0.5,
+        "recall@2": 1.0,
+        "mrr": 1.0,
+        "ndcg@2": 1.0,
+        "context_precision": 0.0,
+        "context_recall": 0.0
+      },
+      "generation_metrics": {
+        "exact_match": 0.0,
+        "f1_score": 0.6286,
+        "bleu": 0.291,
+        "rouge_l_precision": 1.0,
+        "rouge_l_recall": 0.4583,
+        "rouge_l_f1": 0.6286,
+        "faithfulness": 0.0,
+        "answer_relevancy": 0.0
+      },
+      "latency_ms": 0.0
+    },
+    {
+      "id": "eval-007",
+      "question": "Quelles sont les limites du modèle de prévision de visiteurs ?",
+      "category": "faq",
+      "relevant_source": "kb",
+      "ground_truth": "Le modèle ne prend pas en compte les événements exceptionnels (météo extrême, jours fériés, promotions imprévues) et sa précision diminue au-delà de 7 jours.",
+      "answer": "Le modèle ne prend pas en compte les événements exceptionnels et sa précision diminue au-delà de 7 jours.",
+      "retrieved_kb_ids": [
+        "kb-008"
+      ],
+      "relevant_kb_ids": [
+        "kb-008"
+      ],
+      "retriever_metrics": {
+        "precision@2": 0.5,
+        "recall@2": 1.0,
+        "mrr": 1.0,
+        "ndcg@2": 1.0,
+        "context_precision": 0.0,
+        "context_recall": 0.0
+      },
+      "generation_metrics": {
+        "exact_match": 0.0,
+        "f1_score": 0.8636,
+        "bleu": 0.7087,
+        "rouge_l_precision": 1.0,
+        "rouge_l_recall": 0.76,
+        "rouge_l_f1": 0.8636,
+        "faithfulness": 0.0,
+        "answer_relevancy": 0.1667
+      },
+      "latency_ms": 0.0
+    },
+    {
+      "id": "eval-008",
+      "question": "Combien de visiteurs y a-t-il eu le 2026-05-01 ?",
+      "category": "data",
+      "relevant_source": "csv",
+      "ground_truth": "Les données CSV du 2026-05-01 indiquent le total des visites enregistrées ce jour-là.",
+      "answer": "Les données CSV indiquent les visites enregistrées pour cette date.",
+      "retrieved_kb_ids": [],
+      "relevant_kb_ids": [],
+      "retriever_metrics": {
+        "precision@2": 0.0,
+        "recall@2": 0.0,
+        "mrr": 0.0,
+        "ndcg@2": 0.0,
+        "context_precision": 1.0,
+        "context_recall": 0.1429
+      },
+      "generation_metrics": {
+        "exact_match": 0.0,
+        "f1_score": 0.4615,
+        "bleu": 0.2454,
+        "rouge_l_precision": 0.6,
+        "rouge_l_recall": 0.375,
+        "rouge_l_f1": 0.4615,
+        "faithfulness": 0.25,
+        "answer_relevancy": 0.0
+      },
+      "latency_ms": 0.0
+    },
+    {
+      "id": "eval-009",
+      "question": "Quel est le bilan global de la période disponible ?",
+      "category": "data",
+      "relevant_source": "csv",
+      "ground_truth": "Le résumé global inclut le total des visites, la répartition par genre et la période couverte.",
+      "answer": "Le résumé global inclut le total des visites et la répartition par genre sur toute la période.",
+      "retrieved_kb_ids": [],
+      "relevant_kb_ids": [],
+      "retriever_metrics": {
+        "precision@2": 0.0,
+        "recall@2": 0.0,
+        "mrr": 0.0,
+        "ndcg@2": 0.0,
+        "context_precision": 0.0,
+        "context_recall": 0.0
+      },
+      "generation_metrics": {
+        "exact_match": 0.0,
+        "f1_score": 0.9091,
+        "bleu": 0.8135,
+        "rouge_l_precision": 0.8235,
+        "rouge_l_recall": 0.875,
+        "rouge_l_f1": 0.8485,
+        "faithfulness": 0.0,
+        "answer_relevancy": 0.4
+      },
+      "latency_ms": 0.0
+    },
+    {
+      "id": "eval-010",
+      "question": "Combien de visites la Porte_nord a-t-elle reçu hier ?",
+      "category": "hybrid",
+      "relevant_source": "both",
+      "ground_truth": "Les données CSV d'hier pour la caméra Porte_nord indiquent le nombre de visites enregistrées.",
+      "answer": "Les données de la Porte_nord pour la date demandée sont disponibles dans le CSV.",
+      "retrieved_kb_ids": [
+        "kb-004"
+      ],
+      "relevant_kb_ids": [
+        "kb-004"
+      ],
+      "retriever_metrics": {
+        "precision@2": 0.5,
+        "recall@2": 1.0,
+        "mrr": 1.0,
+        "ndcg@2": 1.0,
+        "context_precision": 0.5,
+        "context_recall": 0.125
+      },
+      "generation_metrics": {
+        "exact_match": 0.0,
+        "f1_score": 0.5517,
+        "bleu": 0.2761,
+        "rouge_l_precision": 0.3571,
+        "rouge_l_recall": 0.3333,
+        "rouge_l_f1": 0.3448,
+        "faithfulness": 0.3333,
+        "answer_relevancy": 0.1667
+      },
+      "latency_ms": 0.0
+    },
+    {
+      "id": "eval-011",
+      "question": "La politique de confidentialité permet-elle de partager les données visiteurs avec des tiers ?",
+      "category": "faq",
+      "relevant_source": "kb",
+      "ground_truth": "Non, la politique de confidentialité interdit le partage des données de comptage avec des tiers sans consentement explicite.",
+      "answer": "Non, la politique interdit le partage des données visiteurs avec des tiers sans consentement.",
+      "retrieved_kb_ids": [
+        "kb-006"
+      ],
+      "relevant_kb_ids": [
+        "kb-006"
+      ],
+      "retriever_metrics": {
+        "precision@2": 0.5,
+        "recall@2": 1.0,
+        "mrr": 1.0,
+        "ndcg@2": 1.0,
+        "context_precision": 0.5,
+        "context_recall": 0.1111
+      },
+      "generation_metrics": {
+        "exact_match": 0.0,
+        "f1_score": 0.8125,
+        "bleu": 0.6351,
+        "rouge_l_precision": 0.9286,
+        "rouge_l_recall": 0.7222,
+        "rouge_l_f1": 0.8125,
+        "faithfulness": 0.1429,
+        "answer_relevancy": 0.5556
+      },
+      "latency_ms": 0.0
+    },
+    {
+      "id": "eval-012",
+      "question": "Quel est l'historique des 7 derniers jours ?",
+      "category": "data",
+      "relevant_source": "csv",
+      "ground_truth": "L'historique des 7 derniers jours présente le nombre de visiteurs par jour et la moyenne journalière sur la période.",
+      "answer": "Voici l'historique des 7 derniers jours avec le nombre de visiteurs par jour et la moyenne journalière.",
+      "retrieved_kb_ids": [],
+      "relevant_kb_ids": [],
+      "retriever_metrics": {
+        "precision@2": 0.0,
+        "recall@2": 0.0,
+        "mrr": 0.0,
+        "ndcg@2": 0.0,
+        "context_precision": 0.0,
+        "context_recall": 0.0
+      },
+      "generation_metrics": {
+        "exact_match": 0.0,
+        "f1_score": 0.8421,
+        "bleu": 0.7656,
+        "rouge_l_precision": 0.8889,
+        "rouge_l_recall": 0.8,
+        "rouge_l_f1": 0.8421,
+        "faithfulness": 0.0,
+        "answer_relevancy": 0.75
+      },
+      "latency_ms": 0.0
+    }
+  ]
+}

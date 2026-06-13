@@ -1,0 +1,98 @@
+[
+  {
+    "id": "eval-001",
+    "question": "Quels sont les horaires d'ouverture du magasin ?",
+    "ground_truth": "Le magasin est ouvert du lundi au samedi de 9h à 20h, et le dimanche de 10h à 18h.",
+    "relevant_kb_ids": ["kb-001"],
+    "relevant_source": "kb",
+    "category": "faq"
+  },
+  {
+    "id": "eval-002",
+    "question": "Comment est calculé le taux de conversion ?",
+    "ground_truth": "Le taux de conversion est le rapport entre le nombre d'acheteurs et le nombre total de visiteurs, exprimé en pourcentage.",
+    "relevant_kb_ids": ["kb-002"],
+    "relevant_source": "kb",
+    "category": "faq"
+  },
+  {
+    "id": "eval-003",
+    "question": "Qu'est-ce que le panier moyen ?",
+    "ground_truth": "Le panier moyen est le chiffre d'affaires total divisé par le nombre de transactions réalisées sur une période donnée.",
+    "relevant_kb_ids": ["kb-003"],
+    "relevant_source": "kb",
+    "category": "faq"
+  },
+  {
+    "id": "eval-004",
+    "question": "Combien de caméras de comptage sont installées et où ?",
+    "ground_truth": "Deux caméras sont installées : Porte_nord et Porte_sud, aux entrées principales du magasin.",
+    "relevant_kb_ids": ["kb-004"],
+    "relevant_source": "kb",
+    "category": "faq"
+  },
+  {
+    "id": "eval-005",
+    "question": "Quelle est la procédure en cas de stock critique ?",
+    "ground_truth": "En cas de stock critique, une alerte est envoyée au responsable logistique pour réapprovisionner dans les 24 heures.",
+    "relevant_kb_ids": ["kb-005"],
+    "relevant_source": "kb",
+    "category": "faq"
+  },
+  {
+    "id": "eval-006",
+    "question": "Comment interpréter le flux horaire des visiteurs ?",
+    "ground_truth": "Les pics de visites surviennent généralement entre 11h-13h et 16h-18h. Un flux faible le matin peut indiquer une affluence en après-midi.",
+    "relevant_kb_ids": ["kb-007"],
+    "relevant_source": "kb",
+    "category": "faq"
+  },
+  {
+    "id": "eval-007",
+    "question": "Quelles sont les limites du modèle de prévision de visiteurs ?",
+    "ground_truth": "Le modèle ne prend pas en compte les événements exceptionnels (météo extrême, jours fériés, promotions imprévues) et sa précision diminue au-delà de 7 jours.",
+    "relevant_kb_ids": ["kb-008"],
+    "relevant_source": "kb",
+    "category": "faq"
+  },
+  {
+    "id": "eval-008",
+    "question": "Combien de visiteurs y a-t-il eu le 2026-05-01 ?",
+    "ground_truth": "Les données CSV du 2026-05-01 indiquent le total des visites enregistrées ce jour-là.",
+    "relevant_kb_ids": [],
+    "relevant_source": "csv",
+    "category": "data"
+  },
+  {
+    "id": "eval-009",
+    "question": "Quel est le bilan global de la période disponible ?",
+    "ground_truth": "Le résumé global inclut le total des visites, la répartition par genre et la période couverte.",
+    "relevant_kb_ids": [],
+    "relevant_source": "csv",
+    "category": "data"
+  },
+  {
+    "id": "eval-010",
+    "question": "Combien de visites la Porte_nord a-t-elle reçu hier ?",
+    "ground_truth": "Les données CSV d'hier pour la caméra Porte_nord indiquent le nombre de visites enregistrées.",
+    "relevant_kb_ids": ["kb-004"],
+    "relevant_source": "both",
+    "category": "hybrid"
+  },
+  {
+    "id": "eval-011",
+    "question": "La politique de confidentialité permet-elle de partager les données visiteurs avec des tiers ?",
+    "ground_truth": "Non, la politique de confidentialité interdit le partage des données de comptage avec des tiers sans consentement explicite.",
+    "relevant_kb_ids": ["kb-006"],
+    "relevant_source": "kb",
+    "category": "faq"
+  },
+  {
+    "id": "eval-012",
+    "question": "Quel est l'historique des 7 derniers jours ?",
+    "ground_truth": "L'historique des 7 derniers jours présente le nombre de visiteurs par jour et la moyenne journalière sur la période.",
+    "relevant_kb_ids": [],
+    "relevant_source": "csv",
+    "category": "data"
+  }
+]
