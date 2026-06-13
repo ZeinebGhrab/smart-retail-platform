@@ -11,6 +11,7 @@ import '@ionic/react/css/typography.css';
 
 /* Pages */
 import ChatIA from './pages/ChatIA';
+import Historique from './pages/Historique';
 import TabBar from './components/TabBar';
 
 setupIonicReact();
@@ -23,6 +24,7 @@ const App: React.FC = () => (
         <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
           <IonRouterOutlet>
             <Route exact path="/chat" component={ChatIA} />
+            <Route exact path="/predictions" component={Historique} />
             {/* Add other routes here as you build them */}
             <Redirect exact from="/" to="/chat" />
           </IonRouterOutlet>
