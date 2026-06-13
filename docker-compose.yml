@@ -92,21 +92,35 @@ services:
       "
     restart: "no"
 
-  # ── Backend Django — API historique / analytics ──────────────
-  # Accès : http://localhost:8000/api/history/...
+  # ── Backend Django — API historique / analytics + RAG ────────
+  # Accès : http://localhost:8000/api/
+  # Chat IA : POST http://localhost:8000/api/chat/
   django_api:
     build:
       context: ./backend
       dockerfile: django_api/Dockerfile
     container_name: shopanalytics-django-api
+    depends_on:
+      ollama:
+        condition: service_healthy
     ports:
       - "8000:8000"
     volumes:
       - ./backend/django_api:/app
       - ./backend/data:/app/data
+      # Partagé avec le conteneur agent : index vectoriel ChromaDB
+      - ./backend/vector_db:/app/vector_db
+      # Partagé avec le conteneur agent : knowledge_base.json
+      - ./backend/dataset:/app/dataset
+      # Modèle retenu après benchmark
+      - ./backend/results:/app/results
     environment:
       - DJANGO_DEBUG=true
       - VISITOR_DATA_CSV=/app/data/shoppingclub_2025_2026.csv
+      # Ollama accessible via le réseau Docker interne
+      - OLLAMA_HOST=http://ollama:11434
+      # Modèle retenu lors du benchmark (eligible_models.json)
+      - OLLAMA_MODEL=llama3.2:3b-instruct-q4_K_M
     restart: unless-stopped
 
   # ── Frontend Ionic React — dev (hot-reload) ──────────────────

@@ -235,3 +235,43 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ─── Loading bubble ────────────────────────────────── */
+.bubble-loading .bubble-text {
+  color: #6b7280;
+  font-style: italic;
+  letter-spacing: 3px;
+  animation: blink 1.2s ease-in-out infinite;
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.25; }
+}
+
+/* ─── Bubble footer (time + model tag) ──────────────── */
+.bubble-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 2px;
+}
+.bubble-model {
+  font-size: 9px;
+  color: #3b82f6;
+  background: rgba(59,130,246,0.12);
+  border-radius: 4px;
+  padding: 1px 5px;
+  letter-spacing: 0.3px;
+  font-weight: 500;
+}
+
+/* ─── Send button disabled ───────────────────────────── */
+.send-btn-disabled {
+  background: #374151 !important;
+  cursor: not-allowed;
+}
+.chat-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

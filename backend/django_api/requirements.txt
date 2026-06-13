@@ -1,6 +1,14 @@
+# ── Django API ───────────────────────────────────────────────
 Django>=5.0,<6.0
 djangorestframework>=3.15
 django-cors-headers>=4.3
 drf-spectacular>=0.27
 pandas>=2.0
 numpy>=1.24
+
+# ── RAG pipeline : appel HTTP Ollama uniquement ───────────────
+# Pas de torch / sentence-transformers / chromadb dans ce conteneur.
+# Les embeddings KB sont faits via l'API /api/embeddings d'Ollama
+# (Conteneur ollama déjà présent, modèle llama3.2 déjà chargé).
+# La KB (8 docs) est trop petite pour justifier ChromaDB.
+requests>=2.31
