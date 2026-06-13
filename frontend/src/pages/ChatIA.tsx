@@ -7,6 +7,7 @@ import {
   IonIcon,
 } from '@ionic/react';
 import { micOutline, send } from 'ionicons/icons';
+import { API_BASE_URL } from '../services/api';
 import './ChatIA.css';
 
 interface Message {
@@ -14,6 +15,7 @@ interface Message {
   text: string;
   sender: 'bot' | 'user';
   time: string;
+  loading?: boolean;
 }
 
 const getTimeString = () => {
@@ -26,30 +28,37 @@ const initialMessages: Message[] = [
     id: 1,
     sender: 'bot',
     time: getTimeString(),
-    text: `Bonjour ! Je suis votre assistant IA Anavid.
-
-📊 Rapport du jour :
-• Visiteurs : 1 247 (+12%)
-• CA : 14 320 € (+8%)
-• Alertes actives : 8
-
-Comment puis-je vous aider ?`,
+    text: `Bonjour ! Je suis votre assistant IA Anavid.\n\nPosez-moi vos questions sur les visiteurs :\n• "Nombre de visiteurs le 2026-05-30 ?"\n• "Flux horaire hier Porte_nord"\n• "Historique des 7 derniers jours"\n• "Prévision pour demain"`,
   },
 ];
 
+// ── Appel RAG backend ─────────────────────────────────────
+async function askRAG(question: string): Promise<string> {
+  const res = await fetch(`${API_BASE_URL}/chat/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question }),
+  });
+  if (!res.ok) throw new Error(`Erreur API (${res.status})`);
+  const data = await res.json();
+  return data.answer ?? 'Aucune réponse reçue.';
+}
+
+// ── Composant ─────────────────────────────────────────────
 const ChatIA: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [inputText, setInputText] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const contentRef = useRef<HTMLIonContentElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-scroll to bottom when new message arrives
   useEffect(() => {
     contentRef.current?.scrollToBottom(300);
   }, [messages]);
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     const trimmed = inputText.trim();
-    if (!trimmed) return;
+    if (!trimmed || isLoading) return;
 
     const userMsg: Message = {
       id: Date.now(),
@@ -58,19 +67,38 @@ const ChatIA: React.FC = () => {
       time: getTimeString(),
     };
 
-    setMessages((prev) => [...prev, userMsg]);
-    setInputText('');
+    const loadingMsg: Message = {
+      id: Date.now() + 1,
+      text: '...',
+      sender: 'bot',
+      time: getTimeString(),
+      loading: true,
+    };
 
-    // Simulate bot response
-    setTimeout(() => {
-      const botMsg: Message = {
-        id: Date.now() + 1,
-        text: "Je traite votre demande... 🤖",
-        sender: 'bot',
-        time: getTimeString(),
-      };
-      setMessages((prev) => [...prev, botMsg]);
-    }, 1000);
+    setMessages((prev) => [...prev, userMsg, loadingMsg]);
+    setInputText('');
+    setIsLoading(true);
+
+    try {
+      const answer = await askRAG(trimmed);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.loading ? { ...m, text: answer, loading: false, time: getTimeString() } : m
+        )
+      );
+    } catch (err) {
+      const errText = err instanceof Error ? err.message : 'Erreur inconnue';
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.loading
+            ? { ...m, text: `❌ Impossible de contacter le serveur.\n${errText}`, loading: false }
+            : m
+        )
+      );
+    } finally {
+      setIsLoading(false);
+      inputRef.current?.focus();
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -98,7 +126,7 @@ const ChatIA: React.FC = () => {
           <span className="header-title">Assistant IA</span>
           <span className="header-status">
             <span className="status-dot" />
-            En ligne
+            {isLoading ? 'En train de répondre…' : 'En ligne'}
           </span>
         </div>
       </div>
@@ -117,9 +145,9 @@ const ChatIA: React.FC = () => {
                   </svg>
                 </div>
               )}
-              <div className={`bubble ${msg.sender}`}>
+              <div className={`bubble ${msg.sender} ${msg.loading ? 'bubble-loading' : ''}`}>
                 <p className="bubble-text">{msg.text}</p>
-                <span className="bubble-time">{msg.time}</span>
+                {!msg.loading && <span className="bubble-time">{msg.time}</span>}
               </div>
             </div>
           ))}
@@ -134,13 +162,19 @@ const ChatIA: React.FC = () => {
               <IonIcon icon={micOutline} />
             </button>
             <input
+              ref={inputRef}
               className="chat-input"
-              placeholder="Posez votre question..."
+              placeholder="Posez votre question…"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
+              disabled={isLoading}
             />
-            <button className="send-btn" onClick={sendMessage}>
+            <button
+              className={`send-btn ${isLoading ? 'send-btn-disabled' : ''}`}
+              onClick={sendMessage}
+              disabled={isLoading}
+            >
               <IonIcon icon={send} />
             </button>
           </div>
