@@ -27,6 +27,11 @@ interface RagResponse {
   error?: string;
 }
 
+interface ChatHistoryItem {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 // ── Helpers ───────────────────────────────────────────────
 const getTimeString = () => {
   const now = new Date();
@@ -43,11 +48,11 @@ const initialMessages: Message[] = [
 ];
 
 // ── Appel RAG — POST /api/chat/ ───────────────────────────
-async function askRAG(question: string): Promise<RagResponse> {
+async function askRAG(question: string, history: ChatHistoryItem[] = []): Promise<RagResponse> {
   const res = await fetch(`${API_BASE_URL}/chat/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify({ question, history }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -90,8 +95,18 @@ const ChatIA: React.FC = () => {
     setInputText('');
     setIsLoading(true);
 
+    // Historique = messages précédents (hors message d'accueil initial
+    // et hors bulle de chargement courante), limité aux 6 derniers.
+    const history: ChatHistoryItem[] = messages
+      .filter(m => m.id !== initialMessages[0].id && !m.loading)
+      .slice(-6)
+      .map(m => ({
+        role: m.sender === 'user' ? 'user' : 'assistant',
+        content: m.text,
+      }));
+
     try {
-      const { answer, model, error } = await askRAG(trimmed);
+      const { answer, model, error } = await askRAG(trimmed, history);
       const text = error ? `❌ ${error}` : answer;
       setMessages(prev =>
         prev.map(m =>

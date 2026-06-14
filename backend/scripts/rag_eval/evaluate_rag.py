@@ -64,6 +64,7 @@ try:
         _build_csv_context,
         _call_ollama,
         _build_prompt,
+        _is_pure_data_query,
         KB_JSON,
         run_rag_pipeline,
     )
@@ -209,14 +210,17 @@ def evaluate_one(
         # Mode réel : appel au pipeline Anavid
         try:
             csv_text = _build_csv_context(question)
-            kb_text  = _retrieve_kb(question, n_results=K)
+            if _is_pure_data_query(question):
+                kb_text = ""
+            else:
+                kb_text  = _retrieve_kb(question, n_results=K)
 
             # Extraire les IDs des docs récupérés
             kb_ids = _parse_kb_ids_from_text(kb_text)
             if not kb_ids:
                 kb_ids = _infer_kb_ids_from_text(kb_text, title_to_id)
 
-            retrieved_passages = [kb_text, csv_text]
+            retrieved_passages = [p for p in (kb_text, csv_text) if p]
             prompt = _build_prompt(question, csv_text, kb_text)
             answer = _call_ollama(prompt)
 
