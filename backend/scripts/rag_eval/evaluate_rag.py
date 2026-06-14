@@ -119,13 +119,22 @@ def _load_kb_title_to_id() -> dict[str, str]:
 
 
 def _infer_kb_ids_from_text(kb_text: str, title_to_id: dict[str, str]) -> list[str]:
-    """Infère les IDs KB en cherchant les titres dans le texte récupéré."""
-    found = []
+    """Infère les IDs KB en cherchant les titres exacts dans le texte récupéré.
+
+    rag_pipeline._retrieve_kb() renvoie le texte sous la forme
+    "[Titre du doc] Contenu...\n[Titre du doc 2] Contenu...".
+    On cherche donc le titre complet (et non quelques mots, trop bruités
+    par les mots courants comme "du"/"de"/"des"), et on conserve l'ordre
+    d'apparition dans kb_text (= ordre de pertinence renvoyé par le pipeline).
+    """
     kb_lower = kb_text.lower()
+    matches: list[tuple[int, str]] = []
     for title, doc_id in title_to_id.items():
-        if any(word in kb_lower for word in title.split()[:3]):
-            found.append(doc_id)
-    return found[:K]  # max K résultats
+        idx = kb_lower.find(title)
+        if idx != -1:
+            matches.append((idx, doc_id))
+    matches.sort(key=lambda t: t[0])
+    return [doc_id for _, doc_id in matches[:K]]
 
 
 # ══════════════════════════════════════════════════════════════
