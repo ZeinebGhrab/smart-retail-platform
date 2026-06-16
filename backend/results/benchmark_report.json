@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-16T16:59:05.731267",
+  "generated_at": "2026-06-16T17:41:56.385003",
   "thresholds": {
     "ttft_max_sec": 1.5,
     "throughput_min_tps": 20.0,
@@ -10,19 +10,19 @@
     {
       "model_id": "llama3.2:3b-instruct-q4_K_M",
       "label": "Llama 3.2 3B (q4_K_M)",
-      "timestamp": "2026-06-16T16:57:43.485459",
+      "timestamp": "2026-06-16T17:40:55.976633",
       "ttft_throughput": {
-        "ttft_avg": 0.358,
-        "ttft_min": 0.336,
-        "throughput_avg": 60.2,
-        "throughput_max": 60.8
+        "ttft_avg": 0.236,
+        "ttft_min": 0.221,
+        "throughput_avg": 70.0,
+        "throughput_max": 71.2
       },
       "tool_calling": {
         "total_queries": 50,
-        "valid_json": 43,
-        "valid_json_pct": 86.0,
-        "valid_tool_structure": 43,
-        "valid_tool_pct": 86.0,
+        "valid_json": 45,
+        "valid_json_pct": 90.0,
+        "valid_tool_structure": 45,
+        "valid_tool_pct": 90.0,
         "errors": [
           {
             "id": 6,
@@ -30,51 +30,41 @@
             "raw": "{\n  \"tool\": \"Conversion Rate Calculator\",\n  \"parameters\": {\n    \"metric\": \"conversion_rate\",\n    \"ti"
           },
           {
-            "id": 14,
+            "id": 13,
             "reason": "invalid_json",
-            "raw": "{\n  \"tool\": \"Sales Comparison\",\n  \"parameters\": {\n    \"dateRange\": [\"2022-01-01\", \"2023-12-31\"],\n   "
+            "raw": "{\n  \"tool\": \"Average Order Value Calculator\",\n  \"parameters\": {\n    \"metric\": \"average_order_value\","
           },
           {
             "id": 17,
             "reason": "invalid_json",
-            "raw": "{\n  \"tool\": \"Sales Promotion Analyzer\",\n  \"parameters\": {\n    \"promotion_id\": \"PROMO-20%\",\n    \"date"
+            "raw": "{\n  \"tool\": \"Sales by Promotion\",\n  \"parameters\": {\n    \"promotion_id\": \"PROMO-20%\",\n    \"date_range"
           },
           {
             "id": 41,
             "reason": "invalid_json",
-            "raw": "{\n  \"tool\": \"Sales Report\",\n  \"parameters\": {\n    \"date\": \"2026-06-07\",\n    \"time_range\": \"[10:00, 1"
-          },
-          {
-            "id": 42,
-            "reason": "invalid_json",
-            "raw": "{\n  \"tool\": \"Sales Weekly Objective\",\n  \"parameters\": {\n    \"target\": \"Increase sales by 10% compare"
-          },
-          {
-            "id": 44,
-            "reason": "invalid_json",
-            "raw": "{\n  \"tool\": \"Mobile App Analytics\",\n  \"parameters\": {\n    \"metric\": \"active_users\",\n    \"time_range\""
+            "raw": "{\n  \"tool\": \"Sales Report\",\n  \"parameters\": {\n    \"date\": \"2026-06-07T10:00:00\",\n    \"time_range\": \""
           },
           {
             "id": 49,
             "reason": "invalid_json",
-            "raw": "{\n  \"tool\": \"SalesPerformanceByVendor\",\n  \"parameters\": {\n    \"dateRange\": [\"2023-06-01\", \"2023-06-3"
+            "raw": "{\n  \"tool\": \"SalesByVendor\",\n  \"parameters\": {\n    \"dateRange\": \"[2023-06-01, 2023-06-30]\"\n  }"
           }
         ]
       },
       "anti_hallucination": {
-        "response": "Je suis désolé, mais je dois corriger une erreur dans votre question.\n\nIl n'a pas neigé à Sfax le 11 juin 2026, car il fait 38°C et soleil. Il est également fermé pour inventaire, ce qui signifie qu'il n'y a eu aucune vente réalisée.\n\nLa réponse est donc : Aucune vente a été réalisée, et il faisait ",
+        "response": "Je suis désolé, mais je dois corriger une erreur dans votre question.\n\nIl n'a pas neigé à Sfax le 11 juin 2026. En effet, selon les données disponibles, il faisait 38°C et soleil à Sfax ce jour-là.\n\nEn ce qui concerne les ventes, elles ont été réalisées à 0 euros car le magasin était fermé pour inve",
         "mentions_correct_sales": true,
         "invented_snow": false,
         "mentions_correct_weather": true,
         "hallucination_free": true
       },
       "context_latency": {
-        "throughput_short_ctx": 64.8,
-        "throughput_long_ctx": 55.6,
-        "degradation_pct": 14.2
+        "throughput_short_ctx": 69.9,
+        "throughput_long_ctx": 58.5,
+        "degradation_pct": 16.3
       },
       "scoring": {
-        "score_100": 95,
+        "score_100": 97,
         "ttft_pass": true,
         "throughput_pass": true,
         "json_pass": false,

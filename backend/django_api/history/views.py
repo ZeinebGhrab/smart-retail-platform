@@ -5,13 +5,22 @@
 
 import json
 import threading
+from pathlib import Path
 
+from django.conf import settings
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.http import StreamingHttpResponse
 
 from . import visitor_data as vd
+
+# ── Notifications N8N : persistance fichier JSON ────────────
+# N8N écrit le dernier rapport ici (depuis le nœud "Push SSE → Django",
+# en plus du broadcast SSE), ce qui permet au front de récupérer le
+# dernier rapport même après un rechargement de page / reconnexion.
+_NOTIF_DIR = Path(getattr(settings, "BACKEND_DIR", Path(__file__).resolve().parent.parent.parent)) / "data"
+_NOTIF_FILE = _NOTIF_DIR / "notifications.json"
 
 _DATE_PARAM = OpenApiParameter(
     "date", str, description="Date au format YYYY-MM-DD (par défaut : dernière date disponible)."
@@ -114,6 +123,52 @@ def cameras(request):
     return Response({"cameras": vd.list_cameras()})
 
 
+# ── Notifications N8N — lecture / écriture fichier JSON ─────
+
+def _read_notifications() -> list:
+    if not _NOTIF_FILE.exists():
+        return []
+    try:
+        with open(_NOTIF_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, list) else []
+    except (json.JSONDecodeError, OSError):
+        return []
+
+
+def _append_notification(payload: dict) -> None:
+    _NOTIF_DIR.mkdir(parents=True, exist_ok=True)
+    history = _read_notifications()
+    history.append(payload)
+    # Garde les 100 derniers rapports maximum
+    history = history[-100:]
+    with open(_NOTIF_FILE, "w", encoding="utf-8") as f:
+        json.dump(history, f, ensure_ascii=False, indent=2)
+
+
+@extend_schema(
+    tags=["Notifications — N8N"],
+    summary="Dernière notification reçue de N8N",
+    description="Retourne le dernier rapport quotidien reçu via /api/daily-report/ (persisté en fichier JSON).",
+)
+@api_view(["GET"])
+def latest_notification(request):
+    history = _read_notifications()
+    if not history:
+        return Response({"message": "Aucune notification reçue pour le moment."}, status=200)
+    return Response(history[-1])
+
+
+@extend_schema(
+    tags=["Notifications — N8N"],
+    summary="Historique des notifications reçues de N8N",
+    description="Retourne la liste des rapports quotidiens reçus via /api/daily-report/ (les plus récents en dernier).",
+)
+@api_view(["GET"])
+def notifications_history(request):
+    return Response({"count": len(_read_notifications()), "results": _read_notifications()})
+
+
 # ── SSE stream ───────────────────────────────────────────────
 
 def sse_stream(request):
@@ -196,6 +251,9 @@ def daily_report(request):
     if missing:
         return Response({"error": f"Champs manquants : {', '.join(missing)}"}, status=400)
 
+    # Persistance fichier JSON (pour /api/notifications/latest/ et /history/)
+    _append_notification(payload)
+
     # Broadcast à tous les clients SSE connectés
     with _sse_lock:
         active_clients = list(_sse_clients)
@@ -213,3 +271,11 @@ def daily_report(request):
         "clients_notified": delivered,
         "date": payload.get("date"),
     })
+
+
+# ── Alias — noms attendus par history/urls.py ────────────────
+# (le endpoint SSE est consommé par le Dashboard React via
+#  useSSEPrediction.ts ; le endpoint POST est appelé par le
+#  workflow N8N "Push SSE → Django")
+prediction_stream = sse_stream
+receive_daily_report = daily_report
