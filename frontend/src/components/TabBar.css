@@ -1,4 +1,9 @@
 .tab-bar-wrapper {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 999;
   background: #0f1117;
   border-top: 1px solid #1e2130;
   padding: 4px 4px;

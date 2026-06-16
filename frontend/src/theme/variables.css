@@ -1,2 +1,39 @@
-/* For information on how to create your own theme, please refer to:
-http://ionicframework.com/docs/theming/ */
+/* ============================================================
+   src/theme/variables.css
+   Variables globales Ionic — thème sombre ShopAnalytics
+   FIX #3 : fichier était vide → IonPage/IonContent restaient
+            blancs car Ionic applique son thème clair par défaut
+   ============================================================ */
+
+:root {
+  /* Fond global — doit correspondre à --db-bg de Dashboard.css */
+  --ion-background-color:         #0f1117;
+  --ion-background-color-rgb:     15, 17, 23;
+
+  /* Texte */
+  --ion-text-color:               #e8edf8;
+  --ion-text-color-rgb:           232, 237, 248;
+
+  /* Couleur primaire (boutons, accents) */
+  --ion-color-primary:            #2563eb;
+  --ion-color-primary-rgb:        37, 99, 235;
+  --ion-color-primary-contrast:   #ffffff;
+  --ion-color-primary-shade:      #1e50c8;
+  --ion-color-primary-tint:       #3b72ed;
+
+  /* Surfaces Ionic (toolbar, items, cards) */
+  --ion-toolbar-background:       #0f1117;
+  --ion-toolbar-color:            #e8edf8;
+  --ion-item-background:          #1a1f2e;
+  --ion-card-background:          #1a1f2e;
+
+  /* Bordures */
+  --ion-border-color:             #2a3050;
+  --ion-item-border-color:        #2a3050;
+
+  /* Footer / TabBar */
+  --ion-tab-bar-background:       #0f1117;
+  --ion-tab-bar-border-color:     #2a3050;
+  --ion-tab-bar-color:            #6b7280;
+  --ion-tab-bar-color-selected:   #2563eb;
+}
