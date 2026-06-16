@@ -109,8 +109,34 @@ services:
       - NODE_ENV=development
     restart: unless-stopped
 
+  # ── Orchestrateur de workflows — N8N ─────────────────────────
+  # Accès UI : http://localhost:5678
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: shopanalytics-n8n
+    restart: unless-stopped
+    depends_on:
+      ollama:
+        condition: service_healthy
+      django_api:
+        condition: service_started
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://localhost:5678/
+      - GENERIC_TIMEZONE=Europe/Paris
+      - N8N_SECURE_COOKIE=false
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./backend/n8n/workflows:/workflows   # pour import au démarrage
+
 volumes:
   ollama_models:
     name: shopanalytics_ollama_models
   frontend_node_modules:
     name: shopanalytics_frontend_node_modules
+  n8n_data:
+    name: shopanalytics_n8n_data

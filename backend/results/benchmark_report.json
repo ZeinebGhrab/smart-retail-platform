@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-14T01:26:20.661680",
+  "generated_at": "2026-06-16T14:21:35.954663",
   "thresholds": {
     "ttft_max_sec": 1.5,
     "throughput_min_tps": 20.0,
@@ -10,66 +10,61 @@
     {
       "model_id": "llama3.2:3b-instruct-q4_K_M",
       "label": "Llama 3.2 3B (q4_K_M)",
-      "timestamp": "2026-06-14T01:25:03.262550",
+      "timestamp": "2026-06-16T14:20:31.732050",
       "ttft_throughput": {
-        "ttft_avg": 0.294,
-        "ttft_min": 0.289,
-        "throughput_avg": 65.6,
-        "throughput_max": 69.1
+        "ttft_avg": 0.32,
+        "ttft_min": 0.307,
+        "throughput_avg": 65.8,
+        "throughput_max": 68.7
       },
       "tool_calling": {
         "total_queries": 50,
-        "valid_json": 44,
-        "valid_json_pct": 88.0,
-        "valid_tool_structure": 44,
-        "valid_tool_pct": 88.0,
+        "valid_json": 45,
+        "valid_json_pct": 90.0,
+        "valid_tool_structure": 45,
+        "valid_tool_pct": 90.0,
         "errors": [
-          {
-            "id": 6,
-            "reason": "invalid_json",
-            "raw": "{\n  \"tool\": \"Conversion Rate Calculator\",\n  \"parameters\": {\n    \"metric\": \"conversion_rate\",\n    \"ti"
-          },
           {
             "id": 10,
             "reason": "invalid_json",
             "raw": "{\n  \"tool\": \"Product Return Dashboard\",\n  \"parameters\": {\n    \"metric\": \"returns_count\",\n    \"time_r"
           },
           {
+            "id": 14,
+            "reason": "invalid_json",
+            "raw": "{\n  \"tool\": \"Sales Comparison\",\n  \"parameters\": {\n    \"dateRange\": \"2022-04-01:2023-03-31\",\n    \"pro"
+          },
+          {
             "id": 17,
             "reason": "invalid_json",
-            "raw": "{\n  \"tool\": \"Sales Promotion Analyzer\",\n  \"parameters\": {\n    \"promotion_id\": \"PROMO-20%\",\n    \"date"
+            "raw": "{\n  \"tool\": \"SalesByPromotion\",\n  \"parameters\": {\n    \"promotion_id\": \"PROMO-20%\",\n    \"date_range\":"
           },
           {
-            "id": 32,
+            "id": 30,
             "reason": "invalid_json",
-            "raw": "{\n  \"tool\": \"Promotion Calendar\",\n  \"parameters\": {\n    \"date_range\": \"2026-07-01:2026-12-31\"\n  }"
-          },
-          {
-            "id": 35,
-            "reason": "invalid_json",
-            "raw": "{\n  \"tool\": \"DataExplorer\",\n  \"parameters\": {\n    \"category\": \"Sport\",\n    \"metric\": \"average_restoc"
+            "raw": "{\n  \"tool\": \"Product Discount Analysis\",\n  \"parameters\": {\n    \"category\": \"Vente\",\n    \"filter\": \"D"
           },
           {
             "id": 41,
             "reason": "invalid_json",
-            "raw": "{\n  \"tool\": \"Sales Report\",\n  \"parameters\": {\n    \"date\": \"2026-06-07\",\n    \"time_range\": \"[10:00, 1"
+            "raw": "{\n  \"tool\": \"Sales Report\",\n  \"parameters\": {\n    \"date\": \"2026-06-07T10:00:00\",\n    \"time_range\": \""
           }
         ]
       },
       "anti_hallucination": {
-        "response": "Je suis désolé, mais je dois corriger une erreur dans votre question.\n\nIl n'a pas neigé à Sfax le 11 juin 2026, car il fait 38°C et soleil. Il est également fermé pour inventaire, ce qui signifie qu'il n'y a eu aucune vente réalisée.\n\nLa réponse correcte est donc : Aucune vente a été réalisée et il ",
+        "response": "Je suis désolé, mais je dois corriger une erreur dans votre question.\n\nIl n'a pas neigé à Sfax le 11 juin 2026, car il fait 38°C et soleil. Il est également fermé pour inventaire, ce qui signifie qu'il n'y a eu aucune vente réalisée.\n\nLa réponse est donc : Aucune vente a été réalisée, et il faisait ",
         "mentions_correct_sales": true,
         "invented_snow": false,
         "mentions_correct_weather": true,
         "hallucination_free": true
       },
       "context_latency": {
-        "throughput_short_ctx": 58.7,
-        "throughput_long_ctx": 51.8,
-        "degradation_pct": 11.8
+        "throughput_short_ctx": 63.2,
+        "throughput_long_ctx": 54.2,
+        "degradation_pct": 14.2
       },
       "scoring": {
-        "score_100": 96,
+        "score_100": 97,
         "ttft_pass": true,
         "throughput_pass": true,
         "json_pass": false,
