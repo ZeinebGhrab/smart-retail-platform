@@ -13,6 +13,7 @@ import '@ionic/react/css/typography.css';
 import ChatIA from './pages/ChatIA';
 import Historique from './pages/Historique';
 import TabBar from './components/TabBar';
+import Dashboard from './pages/Dashboard';
 
 setupIonicReact();
 
@@ -23,6 +24,7 @@ const App: React.FC = () => (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
           <IonRouterOutlet>
+            <Route exact path="/dashboard"   component={Dashboard}  /> 
             <Route exact path="/chat" component={ChatIA} />
             <Route exact path="/predictions" component={Historique} />
             {/* Add other routes here as you build them */}

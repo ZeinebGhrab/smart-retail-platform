@@ -3,9 +3,13 @@
 # Source de données : data/shoppingclub_2025_2026.csv
 # ============================================================
 
+import json
+import threading
+
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from django.http import StreamingHttpResponse
 
 from . import visitor_data as vd
 
@@ -21,6 +25,10 @@ _END_DATE_PARAM = OpenApiParameter(
 _CAMERA_PARAM = OpenApiParameter(
     "camera", str, description="Filtrer par caméra : 'Porte_nord' ou 'Porte_sud' (par défaut : toutes, agrégées)."
 )
+
+# ── SSE : liste des clients connectés (thread-safe) ─────────
+_sse_clients: list = []
+_sse_lock = threading.Lock()
 
 
 @extend_schema(
@@ -104,3 +112,104 @@ def summary(request):
 @api_view(["GET"])
 def cameras(request):
     return Response({"cameras": vd.list_cameras()})
+
+
+# ── SSE stream ───────────────────────────────────────────────
+
+def sse_stream(request):
+    """
+    GET /api/daily-report/stream/
+    Connexion SSE longue durée — le Dashboard React s'y abonne
+    pour recevoir les rapports quotidiens en temps réel.
+    """
+    import queue
+
+    q: queue.Queue = queue.Queue()
+    with _sse_lock:
+        _sse_clients.append(q)
+
+    def event_stream():
+        try:
+            # Heartbeat initial pour confirmer la connexion
+            yield "event: connected\ndata: {}\n\n"
+            while True:
+                try:
+                    payload = q.get(timeout=30)
+                    yield f"event: llm_report\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+                except queue.Empty:
+                    # Keepalive toutes les 30 s
+                    yield ": keepalive\n\n"
+        except GeneratorExit:
+            pass
+        finally:
+            with _sse_lock:
+                try:
+                    _sse_clients.remove(q)
+                except ValueError:
+                    pass
+
+    response = StreamingHttpResponse(event_stream(), content_type="text/event-stream")
+    response["Cache-Control"] = "no-cache"
+    response["X-Accel-Buffering"] = "no"
+    return response
+
+
+# ── Endpoint POST appelé par N8N ─────────────────────────────
+
+@extend_schema(
+    tags=["Rapport quotidien — N8N"],
+    summary="Réception du rapport quotidien depuis N8N",
+    description=(
+        "Reçoit le payload structuré généré par N8N (Formater Payload SSE) "
+        "et le diffuse immédiatement à tous les clients SSE connectés "
+        "(Dashboard React + ChatIA Ionic).\n\n"
+        "Payload attendu (PredictionData) :\n"
+        "```json\n"
+        "{\n"
+        '  "type": "llm_report",\n'
+        '  "date": "2026-06-16",\n'
+        '  "generated_at": "2026-06-16T06:00:00Z",\n'
+        '  "message": "...",\n'
+        '  "prediction": {\n'
+        '    "visiteurs_prevus": 412,\n'
+        '    "profil_dominant": "Familles",\n'
+        '    "niveau_affluence": "Élevé",\n'
+        '    "heure_pointe": "14:00 - 18:00"\n'
+        "  }\n"
+        "}\n"
+        "```"
+    ),
+)
+@api_view(["POST"])
+def daily_report(request):
+    """
+    POST /api/daily-report/
+    Appelé par le nœud N8N « Push SSE → Django ».
+    Diffuse le payload à tous les clients SSE abonnés.
+    """
+    payload = request.data
+    if not payload:
+        return Response({"error": "Payload vide."}, status=400)
+
+    required_fields = {"type", "date", "message", "prediction"}
+    missing = required_fields - set(payload.keys())
+    if missing:
+        return Response({"error": f"Champs manquants : {', '.join(missing)}"}, status=400)
+
+    # Broadcast à tous les clients SSE connectés
+    with _sse_lock:
+        active_clients = list(_sse_clients)
+
+    delivered = 0
+    for q in active_clients:
+        try:
+            q.put_nowait(payload)
+            delivered += 1
+        except Exception:
+            pass
+
+    return Response({
+        "status": "broadcasted",
+        "clients_notified": delivered,
+        "date": payload.get("date"),
+    })
