@@ -1,74 +1,89 @@
-// ============================================================
-// src/hooks/useSSEPrediction.ts — Connexion SSE temps réel
-// au backend Django (GET /api/prediction/stream/)
-//
-// Le backend rediffuse à ce flux les payloads reçus de N8N via
-// POST /api/daily-report/ (event: "llm_report"). Voir
-// history/views.py (sse_stream / daily_report) et history/urls.py.
-//
-// Reconnexion automatique avec backoff en cas de coupure.
-// ============================================================
-
-import { useEffect, useRef, useState } from 'react';
-import { API_BASE_URL } from '../services/api';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { PredictionData } from '../types/dashboard.types';
+import { API_BASE_URL } from '../services/api';
 
-interface UseSSEPredictionResult {
+interface UseSSEPredictionReturn {
   prediction: PredictionData | null;
   isConnected: boolean;
+  lastReceivedAt: Date | null;
+  error: string | null;
 }
 
-const RECONNECT_DELAY_MS = 5000;
-
-export function useSSEPrediction(): UseSSEPredictionResult {
+/**
+ * useSSEPrediction
+ * Connects to Django SSE endpoint: GET /api/prediction/stream/
+ * Receives push payloads from n8n "Push Notification (SSE)" node.
+ *
+ * Django endpoint example:
+ *   GET /api/prediction/stream/  →  text/event-stream
+ *   Each event: data: { ...PredictionData }
+ *
+ * n8n node "Envoyer au Chatbot (SSE)" should POST to:
+ *   POST /api/daily-report/
+ *   body: JSON PredictionData
+ * Django then buffers it and pushes via SSE to all connected clients.
+ */
+export function useSSEPrediction(): UseSSEPredictionReturn {
   const [prediction, setPrediction] = useState<PredictionData | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const sourceRef = useRef<EventSource | null>(null);
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [lastReceivedAt, setLastReceivedAt] = useState<Date | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const esRef = useRef<EventSource | null>(null);
+  const retryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    function connect() {
-      if (cancelled) return;
-
-      // API_BASE_URL = http://localhost:8000/api → endpoint SSE complet
-      const url = `${API_BASE_URL}/prediction/stream/`;
-      const es = new EventSource(url);
-      sourceRef.current = es;
-
-      es.addEventListener('connected', () => {
-        if (cancelled) return;
-        setIsConnected(true);
-      });
-
-      es.addEventListener('llm_report', (event: MessageEvent) => {
-        if (cancelled) return;
-        try {
-          const data: PredictionData = JSON.parse(event.data);
-          setPrediction(data);
-        } catch {
-          // Payload invalide — ignoré silencieusement
-        }
-      });
-
-      es.onerror = () => {
-        if (cancelled) return;
-        setIsConnected(false);
-        es.close();
-        if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
-        reconnectTimerRef.current = setTimeout(connect, RECONNECT_DELAY_MS);
-      };
+  const connect = useCallback(() => {
+    if (esRef.current) {
+      esRef.current.close();
     }
 
-    connect();
+    const url = `${API_BASE_URL}/prediction/stream/`;
+    const es = new EventSource(url);
+    esRef.current = es;
 
-    return () => {
-      cancelled = true;
-      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
-      sourceRef.current?.close();
+    es.onopen = () => {
+      setIsConnected(true);
+      setError(null);
+    };
+
+    es.onmessage = (event: MessageEvent) => {
+      try {
+        const data: PredictionData = JSON.parse(event.data);
+        setPrediction(data);
+        setLastReceivedAt(new Date());
+      } catch (e) {
+        console.error('[SSE] Parse error:', e);
+      }
+    };
+
+    // Optional: listen for named event "prediction" in addition to generic message
+    es.addEventListener('prediction', (event: MessageEvent) => {
+      try {
+        const data: PredictionData = JSON.parse(event.data);
+        setPrediction(data);
+        setLastReceivedAt(new Date());
+      } catch (e) {
+        console.error('[SSE] prediction event parse error:', e);
+      }
+    });
+
+    es.onerror = () => {
+      setIsConnected(false);
+      setError('Connexion SSE perdue — reconnexion dans 10s');
+      es.close();
+      // Auto-reconnect after 10 seconds
+      retryRef.current = setTimeout(() => {
+        connect();
+      }, 10000);
     };
   }, []);
 
-  return { prediction, isConnected };
+  useEffect(() => {
+    connect();
+    return () => {
+      esRef.current?.close();
+      if (retryRef.current) clearTimeout(retryRef.current);
+    };
+  }, [connect]);
+
+  return { prediction, isConnected, lastReceivedAt, error };
 }
