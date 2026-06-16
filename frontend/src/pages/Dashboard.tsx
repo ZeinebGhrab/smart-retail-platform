@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   IonPage,
   IonContent,
-  IonFooter,
 } from '@ionic/react';
 import {
   Chart as ChartJS,
@@ -46,7 +45,10 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   { id: 5, icon: 'alert-circle',  iconType: 'amber' as NotifIconType, title: 'Stock faible — Rayon enfants',        msg: 'Réassort nécessaire pour 4 références.',                            time: 'Il y a 1h',          unread: false },
 ];
 
-const NAV_TABS = ['Dashboard','Caméras','Reco IA','Chat IA','Planning','Perf.','Affectation'];
+// FIX: ces pills filtrent des sections de CETTE page (pas une navigation
+// vers d'autres écrans) — limitées aux sections réellement présentes
+// pour ne pas donner l'illusion de liens cassés.
+const NAV_TABS = ["Vue d'ensemble", 'Alertes', 'Prédiction IA'];
 const DAYS     = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
 const MONTHS   = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
 
@@ -88,7 +90,7 @@ const AlertRow: React.FC<AlertRowProps> = ({ alert }) => {
 };
 
 const Dashboard: React.FC = () => {
-  const [activeTab,     setActiveTab]     = useState('Dashboard');
+  const [activeTab,     setActiveTab]     = useState("Vue d'ensemble");
   const [notifOpen,     setNotifOpen]     = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
   const [alerts,        setAlerts]        = useState<AlertItem[]>(INITIAL_ALERTS);
@@ -102,6 +104,26 @@ const Dashboard: React.FC = () => {
 
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { prediction: ssePrediction, isConnected } = useSSEPrediction();
+
+  // FIX: refs de section — les pills de filtre scrollent désormais
+  // réellement vers la section correspondante au lieu de ne rien faire.
+  const contentRef    = useRef<HTMLIonContentElement>(null);
+  const overviewRef   = useRef<HTMLDivElement>(null);
+  const predictionRef = useRef<HTMLDivElement>(null);
+  const alertsRef     = useRef<HTMLDivElement>(null);
+
+  const handleTabClick = useCallback((tab: string) => {
+    setActiveTab(tab);
+    const targetMap: Record<string, React.RefObject<HTMLDivElement>> = {
+      "Vue d'ensemble": overviewRef,
+      'Prédiction IA': predictionRef,
+      'Alertes': alertsRef,
+    };
+    const target = targetMap[tab]?.current;
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, []);
 
   const handleNewPrediction = useCallback((data: PredictionData) => {
     if (!data || !data.prediction) return;
@@ -140,7 +162,6 @@ const Dashboard: React.FC = () => {
   }, []);
 
   // FIX: fonction centralisée — ouvre le panel ET remet le badge à 0
-  // utilisée par la cloche header ET le bouton "Alertes" de la bottom nav
   const handleNotifOpen = useCallback(() => {
     setNotifOpen(true);
     setBadgeCount(0);
@@ -207,7 +228,7 @@ const Dashboard: React.FC = () => {
             <button
               key={tab}
               className={`db-tab-pill ${activeTab === tab ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => handleTabClick(tab)}
             >
               {tab}
             </button>
@@ -216,10 +237,10 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* ── Content ───────────────────────────────────────────────── */}
-      <IonContent className="db-content">
+      <IonContent className="db-content" ref={contentRef}>
 
         {/* KPIs */}
-        <div className="db-kpi-grid">
+        <div className="db-kpi-grid" ref={overviewRef}>
           <KpiCard icon="users"          label="Visiteurs"          value="1 247"    delta="+12% vs hier" />
           <KpiCard icon="trending-up"    label="Chiffre d'affaires" value="14 320 €" delta="+8% vs J-7" />
           <KpiCard icon="percentage"     label="Taux de conversion" value="23.4%"    delta="+2.1%" />
@@ -250,6 +271,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Prediction card SSE */}
+        <div ref={predictionRef} />
         {prediction && prediction.prediction && (
           <div className="db-pred-card">
             <div className="db-pred-header">
@@ -281,7 +303,7 @@ const Dashboard: React.FC = () => {
         )}
 
         {/* Alertes */}
-        <div className="db-section-header">
+        <div className="db-section-header" ref={alertsRef}>
           <span className="db-section-title">Alertes en direct</span>
           <button className="db-voir-tout">Voir tout</button>
         </div>
@@ -291,26 +313,6 @@ const Dashboard: React.FC = () => {
         <div style={{ height: 16 }} />
 
       </IonContent>
-
-      {/* ── Bottom Nav ────────────────────────────────────────────── */}
-      <IonFooter className="db-bottom-nav">
-        <button className="db-nav-item active">
-          <span className="ti ti-layout-dashboard" aria-hidden="true" /><span>Dashboard</span>
-        </button>
-
-        {/* FIX: utilise handleNotifOpen pour synchroniser badge + ouverture panel */}
-        <button className="db-nav-item" onClick={handleNotifOpen}>
-          <span className="ti ti-bell" aria-hidden="true" /><span>Alertes</span>
-          {badgeCount > 0 && <span className="db-nav-badge">{badgeCount}</span>}
-        </button>
-
-        <button className="db-nav-item">
-          <span className="ti ti-chart-bar" aria-hidden="true" /><span>Stats</span>
-        </button>
-        <button className="db-nav-item">
-          <span className="ti ti-user" aria-hidden="true" /><span>Profil</span>
-        </button>
-      </IonFooter>
 
       {/* ── Notification Panel (alertes locales Dashboard) ─────── */}
       {notifOpen && (

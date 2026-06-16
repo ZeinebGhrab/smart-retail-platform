@@ -1,95 +1,322 @@
-.historique-content {
-  --background: #f7f5fb;
+/* ============================================================
+   Historique.css — design system aligné sur Dashboard.css
+   (mêmes tokens : fond sombre, accent bleu, surfaces #1a1f2e)
+   ============================================================ */
+
+:root {
+  --hist-bg:        #0f1117;
+  --hist-surface:   #1a1f2e;
+  --hist-surface2:  #222840;
+  --hist-border:    #2a3050;
+  --hist-blue:      #2563eb;
+  --hist-accent:    #60a5fa;
+  --hist-green:     #4ade80;
+  --hist-amber:     #f59e0b;
+  --hist-red:       #ef4444;
+  --hist-text:      #e8edf8;
+  --hist-muted:     #6b7280;
 }
 
-.historique-loading {
+/* ─── Page ─────────────────────────────────────────────────────── */
+.hist-page {
+  --background: var(--hist-bg);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--hist-bg);
+}
+
+/* ─── Header ───────────────────────────────────────────────────── */
+.hist-header {
+  background: var(--hist-bg);
+  border-bottom: 1px solid var(--hist-border);
+  padding: 12px 16px 0;
+  padding-top: max(12px, env(safe-area-inset-top));
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.hist-header-top {
+  margin-bottom: 10px;
+}
+
+.hist-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--hist-text);
+}
+
+.hist-subtitle {
+  font-size: 12px;
+  color: var(--hist-muted);
+  margin-top: 2px;
+}
+
+.hist-filter-row {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 10px;
+}
+.hist-filter-row::-webkit-scrollbar { display: none; }
+
+.hist-filter-pill {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--hist-border);
+  background: none;
+  color: var(--hist-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.hist-filter-pill.active {
+  background: var(--hist-blue);
+  color: #fff;
+  border-color: var(--hist-blue);
+}
+
+.hist-filter-pill:not(.active):hover {
+  border-color: var(--hist-accent);
+  color: var(--hist-text);
+}
+
+/* ─── Content ──────────────────────────────────────────────────── */
+.hist-content {
+  --background: var(--hist-bg);
+  --padding-bottom: 70px;
+}
+
+/* ─── Loading ──────────────────────────────────────────────────── */
+.hist-loading {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 14px;
+  padding: 64px 24px;
+  color: var(--hist-muted);
+  font-size: 13px;
+}
+
+.hist-spinner {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 3px solid var(--hist-border);
+  border-top-color: var(--hist-blue);
+  animation: hist-spin 0.8s linear infinite;
+}
+
+@keyframes hist-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Error card ───────────────────────────────────────────────── */
+.hist-error-card {
+  margin: 14px;
+  background: var(--hist-surface);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
   gap: 12px;
-  padding: 48px 0;
-  color: #6b6b80;
+  align-items: flex-start;
 }
 
-.kpi-grid {
-  margin-bottom: 8px;
+.hist-error-icon {
+  font-size: 22px;
+  color: var(--hist-red);
+  flex-shrink: 0;
+  margin-top: 1px;
 }
 
-.kpi-card {
-  margin: 4px;
-  border-radius: 16px;
-  box-shadow: 0 2px 10px rgba(91, 33, 182, 0.08);
-}
-
-.kpi-forecast {
-  background: linear-gradient(135deg, #6d28d9 0%, #d6336c 100%);
-  color: #fff;
-}
-
-.kpi-label {
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  opacity: 0.75;
+.hist-error-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--hist-text);
   margin-bottom: 4px;
 }
 
-.kpi-value {
-  font-size: 1.5rem;
-  font-weight: 700;
+.hist-error-msg {
+  font-size: 12px;
+  color: var(--hist-muted);
+  line-height: 1.6;
 }
 
-.kpi-sub {
-  margin-top: 4px;
-  font-size: 0.75rem;
-  opacity: 0.7;
+.hist-error-msg code {
+  background: rgba(255, 255, 255, 0.06);
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: var(--hist-accent);
 }
 
-.section-title {
-  margin: 16px 4px 8px;
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 1.3rem;
-  color: #4c1d95;
+/* ─── KPI grid ─────────────────────────────────────────────────── */
+.hist-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  padding: 14px 14px 0;
 }
 
-.table-wrapper {
-  overflow-x: auto;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 2px 10px rgba(91, 33, 182, 0.06);
+.hist-kpi-card {
+  background: var(--hist-surface);
+  border-radius: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--hist-border);
 }
 
-.history-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.85rem;
-  white-space: nowrap;
+.hist-kpi-forecast {
+  background: linear-gradient(135deg, #1d3a8f 0%, #2563eb 60%, #3b82f6 100%);
+  border-color: rgba(96, 165, 250, 0.4);
 }
 
-.history-table th,
-.history-table td {
-  padding: 8px 12px;
-  text-align: right;
-  border-bottom: 1px solid #eee;
+.hist-kpi-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--hist-muted);
+  margin-bottom: 6px;
 }
 
-.history-table th:first-child,
-.history-table td:first-child,
-.history-table th:nth-child(2),
-.history-table td:nth-child(2) {
-  text-align: left;
-}
+.hist-kpi-forecast .hist-kpi-label { color: rgba(255, 255, 255, 0.75); }
 
-.history-table thead th {
-  background: #f3effa;
-  color: #6d28d9;
+.hist-kpi-value {
+  font-size: 21px;
   font-weight: 600;
-  position: sticky;
-  top: 0;
+  color: var(--hist-text);
+  line-height: 1.2;
 }
 
-.cell-strong {
+.hist-kpi-forecast .hist-kpi-value { color: #fff; }
+
+.hist-kpi-sub {
+  font-size: 10.5px;
+  color: var(--hist-muted);
+  margin-top: 4px;
+}
+
+.hist-kpi-forecast .hist-kpi-sub { color: rgba(255, 255, 255, 0.75); }
+
+/* ─── Chart card ───────────────────────────────────────────────── */
+.hist-chart-card {
+  margin: 12px 14px 0;
+  background: var(--hist-surface);
+  border-radius: 14px;
+  border: 1px solid var(--hist-border);
+  padding: 14px;
+}
+
+.hist-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.hist-chart-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--hist-text);
+}
+
+.hist-chart-badge {
+  font-size: 10px;
+  background: rgba(37, 99, 235, 0.15);
+  color: var(--hist-accent);
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-weight: 500;
+}
+
+.hist-chart-wrap {
+  position: relative;
+  height: 150px;
+}
+
+/* ─── Section header ───────────────────────────────────────────── */
+.hist-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 14px 6px;
+}
+
+.hist-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--hist-text);
+}
+
+/* ─── Row list (remplace le tableau) ──────────────────────────── */
+.hist-row-list {
+  padding: 0 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hist-row-card {
+  background: var(--hist-surface);
+  border-radius: 12px;
+  border: 1px solid var(--hist-border);
+  padding: 11px 13px;
+}
+
+.hist-row-main {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hist-row-date {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--hist-text);
+}
+
+.hist-row-camera {
+  font-size: 11px;
+  color: var(--hist-muted);
+}
+
+.hist-row-count {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 15px;
   font-weight: 700;
-  color: #4c1d95;
+  color: var(--hist-accent);
+  margin-top: 4px;
+}
+
+.hist-row-count .ti { font-size: 14px; opacity: 0.8; }
+
+.hist-row-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.hist-chip {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--hist-text);
+  background: rgba(96, 165, 250, 0.12);
+  border-radius: 6px;
+  padding: 3px 7px;
+}
+
+.hist-chip-muted {
+  color: var(--hist-muted);
+  background: rgba(255, 255, 255, 0.05);
 }

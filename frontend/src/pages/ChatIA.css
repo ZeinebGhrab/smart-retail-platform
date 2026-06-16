@@ -148,6 +148,7 @@
 .chat-footer {
   background: #0f1117;
   border-top: 1px solid #1e2130;
+  margin-bottom: 58px; /* place pour la TabBar globale fixe */
 }
 
 .input-toolbar {

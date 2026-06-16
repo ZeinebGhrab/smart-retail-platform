@@ -1,21 +1,15 @@
 import React from 'react';
-import { IonTabBar, IonTabButton, IonLabel } from '@ionic/react';
 import { useHistory, useLocation } from 'react-router-dom';
 import './TabBar.css';
 
-const TABS_ROW1 = [
-  { label: 'Dashboard', path: '/dashboard' },
-  { label: 'Caméras',   path: '/cameras'   },
-  { label: 'Reco IA',   path: '/reco'      },
-  { label: 'Chat IA',   path: '/chat'      },
-  { label: 'Planning',  path: '/planning'  },
-  { label: 'Perf.',     path: '/perf'      },
-];
-
-const TABS_ROW2 = [
-  { label: 'Affectation', path: '/affectation' },
-  { label: 'Magasins',    path: '/magasins'    },
-  { label: 'Prédictions', path: '/predictions' },
+// FIX: la TabBar ne référence plus que les routes réellement déclarées
+// dans App.tsx (Dashboard, Chat IA, Prédictions). Les anciens onglets
+// (Caméras, Reco IA, Planning, Perf., Affectation, Magasins) menaient
+// vers des pages inexistantes — supprimés pour éviter les écrans blancs.
+const TABS = [
+  { label: 'Dashboard',   path: '/dashboard',   icon: 'ti-layout-dashboard' },
+  { label: 'Chat IA',     path: '/chat',        icon: 'ti-message-chatbot'  },
+  { label: 'Prédictions', path: '/predictions', icon: 'ti-chart-histogram' },
 ];
 
 const TabBar: React.FC = () => {
@@ -26,32 +20,21 @@ const TabBar: React.FC = () => {
   const active = (path: string) => location.pathname === path;
 
   return (
-    <div className="tab-bar-wrapper">
-      {/* Row 1 */}
+    <nav className="tab-bar-wrapper" aria-label="Navigation principale">
       <div className="tab-row">
-        {TABS_ROW1.map((t) => (
+        {TABS.map((t) => (
           <button
             key={t.path}
             className={`tab-btn ${active(t.path) ? 'active' : ''}`}
             onClick={() => go(t.path)}
+            aria-current={active(t.path) ? 'page' : undefined}
           >
-            {t.label}
+            <span className={`ti ${t.icon} tab-btn-icon`} aria-hidden="true" />
+            <span className="tab-btn-label">{t.label}</span>
           </button>
         ))}
       </div>
-      {/* Row 2 */}
-      <div className="tab-row">
-        {TABS_ROW2.map((t) => (
-          <button
-            key={t.path}
-            className={`tab-btn ${active(t.path) ? 'active' : ''}`}
-            onClick={() => go(t.path)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-    </div>
+    </nav>
   );
 };
 
