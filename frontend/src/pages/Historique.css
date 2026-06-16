@@ -1,19 +1,19 @@
 /* ============================================================
    Historique.css — design system aligné sur Dashboard.css
-   (mêmes tokens : fond sombre, accent bleu, surfaces #1a1f2e)
+   (mêmes tokens : fond clair, accent bleu, surfaces blanches)
    ============================================================ */
 
 :root {
-  --hist-bg:        #0f1117;
-  --hist-surface:   #1a1f2e;
-  --hist-surface2:  #222840;
-  --hist-border:    #2a3050;
+  --hist-bg:        #f3f5f9;
+  --hist-surface:   #ffffff;
+  --hist-surface2:  #eef1f7;
+  --hist-border:    #e2e6f0;
   --hist-blue:      #2563eb;
-  --hist-accent:    #60a5fa;
-  --hist-green:     #4ade80;
-  --hist-amber:     #f59e0b;
-  --hist-red:       #ef4444;
-  --hist-text:      #e8edf8;
+  --hist-accent:    #1d4ed8;
+  --hist-green:     #15803d;
+  --hist-amber:     #b45309;
+  --hist-red:       #dc2626;
+  --hist-text:      #111827;
   --hist-muted:     #6b7280;
 }
 
@@ -120,7 +120,7 @@
 .hist-error-card {
   margin: 14px;
   background: var(--hist-surface);
-  border: 1px solid rgba(239, 68, 68, 0.35);
+  border: 1px solid rgba(220, 38, 38, 0.3);
   border-radius: 14px;
   padding: 14px;
   display: flex;
@@ -149,7 +149,7 @@
 }
 
 .hist-error-msg code {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(15, 23, 42, 0.06);
   padding: 1px 5px;
   border-radius: 4px;
   color: var(--hist-accent);
@@ -304,19 +304,19 @@
   gap: 6px;
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
 }
 
 .hist-chip {
   font-size: 10.5px;
   font-weight: 500;
   color: var(--hist-text);
-  background: rgba(96, 165, 250, 0.12);
+  background: rgba(37, 99, 235, 0.10);
   border-radius: 6px;
   padding: 3px 7px;
 }
 
 .hist-chip-muted {
   color: var(--hist-muted);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(15, 23, 42, 0.05);
 }

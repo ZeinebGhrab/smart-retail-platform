@@ -1,16 +1,16 @@
 /* ============================================================
    src/theme/variables.css
-   Design system global — thème sombre ShopAnalytics
+   Design system global — thème clair ShopAnalytics
    ============================================================ */
 
 :root {
   /* Fond global — doit correspondre à --db-bg de Dashboard.css */
-  --ion-background-color:         #0f1117;
-  --ion-background-color-rgb:     15, 17, 23;
+  --ion-background-color:         #f3f5f9;
+  --ion-background-color-rgb:     243, 245, 249;
 
   /* Texte */
-  --ion-text-color:               #e8edf8;
-  --ion-text-color-rgb:           232, 237, 248;
+  --ion-text-color:               #111827;
+  --ion-text-color-rgb:           17, 24, 39;
 
   /* Couleur primaire (boutons, accents) */
   --ion-color-primary:            #2563eb;
@@ -20,26 +20,26 @@
   --ion-color-primary-tint:       #3b72ed;
 
   /* Couleurs sémantiques — alignées avec le système Dashboard/Historique */
-  --ion-color-success:            #4ade80;
-  --ion-color-success-rgb:        74, 222, 128;
-  --ion-color-warning:            #f59e0b;
-  --ion-color-warning-rgb:        245, 158, 11;
-  --ion-color-danger:             #ef4444;
-  --ion-color-danger-rgb:         239, 68, 68;
+  --ion-color-success:            #15803d;
+  --ion-color-success-rgb:        21, 128, 61;
+  --ion-color-warning:            #b45309;
+  --ion-color-warning-rgb:        180, 83, 9;
+  --ion-color-danger:             #dc2626;
+  --ion-color-danger-rgb:         220, 38, 38;
 
   /* Surfaces Ionic (toolbar, items, cards) */
-  --ion-toolbar-background:       #0f1117;
-  --ion-toolbar-color:            #e8edf8;
-  --ion-item-background:          #1a1f2e;
-  --ion-card-background:          #1a1f2e;
+  --ion-toolbar-background:       #f3f5f9;
+  --ion-toolbar-color:            #111827;
+  --ion-item-background:          #ffffff;
+  --ion-card-background:          #ffffff;
 
   /* Bordures */
-  --ion-border-color:             #2a3050;
-  --ion-item-border-color:        #2a3050;
+  --ion-border-color:             #e2e6f0;
+  --ion-item-border-color:        #e2e6f0;
 
   /* Footer / TabBar */
-  --ion-tab-bar-background:       #0f1117;
-  --ion-tab-bar-border-color:     #2a3050;
+  --ion-tab-bar-background:       #ffffff;
+  --ion-tab-bar-border-color:     #e2e6f0;
   --ion-tab-bar-color:            #6b7280;
   --ion-tab-bar-color-selected:   #2563eb;
 

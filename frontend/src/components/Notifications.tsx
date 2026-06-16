@@ -40,10 +40,10 @@ function fmtDate(str: string) {
 function levelColor(niveau: string): string {
   if (!niveau) return '#64748b';
   const n = niveau.toLowerCase();
-  if (n.includes('très'))                         return '#f87171';
-  if (n.includes('élevé') || n.includes('eleve')) return '#fb923c';
-  if (n.includes('modéré') || n.includes('modere')) return '#fbbf24';
-  return '#34d399';
+  if (n.includes('très'))                         return '#dc2626';
+  if (n.includes('élevé') || n.includes('eleve')) return '#ea580c';
+  if (n.includes('modéré') || n.includes('modere')) return '#b45309';
+  return '#059669';
 }
 
 // ── Fetch helpers ─────────────────────────────────────────
@@ -149,8 +149,8 @@ const NotificationPanel: React.FC<PanelProps> = ({ onClose }) => {
                   <div className="notif-card-left">
                     <div className="notif-card-icon">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                        <circle cx="12" cy="12" r="10" stroke="#60a5fa" strokeWidth="2"/>
-                        <path d="M12 6v6l4 2" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round"/>
+                        <circle cx="12" cy="12" r="10" stroke="#2563eb" strokeWidth="2"/>
+                        <path d="M12 6v6l4 2" stroke="#2563eb" strokeWidth="2" strokeLinecap="round"/>
                       </svg>
                     </div>
                     <div>

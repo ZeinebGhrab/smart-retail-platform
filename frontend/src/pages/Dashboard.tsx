@@ -181,7 +181,7 @@ const Dashboard: React.FC = () => {
       {
         label: 'Hier',
         data: INTRADAY_YESTERDAY,
-        borderColor: 'rgba(74,222,128,0.5)',
+        borderColor: 'rgba(21,128,61,0.6)',
         borderWidth: 1.5, pointRadius: 0, tension: 0.4, fill: false,
       },
     ],
@@ -192,8 +192,8 @@ const Dashboard: React.FC = () => {
     maintainAspectRatio: false,
     plugins: { legend: { display: false } },
     scales: {
-      x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6b7280', font: { size: 9 }, maxRotation: 0 } },
-      y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6b7280', font: { size: 9 }, maxTicksLimit: 5 } },
+      x: { grid: { color: 'rgba(15,23,42,0.06)' }, ticks: { color: '#6b7280', font: { size: 9 }, maxRotation: 0 } },
+      y: { grid: { color: 'rgba(15,23,42,0.06)' }, ticks: { color: '#6b7280', font: { size: 9 }, maxTicksLimit: 5 } },
     },
   } as const;
 

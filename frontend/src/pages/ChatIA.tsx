@@ -141,14 +141,14 @@ const ChatIA: React.FC = () => {
       <div className="chat-header">
         <button className="back-btn" aria-label="Retour">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path d="M15 18l-6-6 6-6" stroke="white" strokeWidth="2"
+            <path d="M15 18l-6-6 6-6" stroke="#111827" strokeWidth="2"
               strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
         <div className="header-avatar">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="8" r="4" stroke="#60a5fa" strokeWidth="2"/>
-            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="#60a5fa" strokeWidth="2"
+            <circle cx="12" cy="8" r="4" stroke="#2563eb" strokeWidth="2"/>
+            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="#2563eb" strokeWidth="2"
               strokeLinecap="round"/>
           </svg>
         </div>
@@ -169,9 +169,9 @@ const ChatIA: React.FC = () => {
               {msg.sender === 'bot' && (
                 <div className="bot-avatar" aria-hidden="true">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="8" r="4" stroke="#60a5fa" strokeWidth="2"/>
+                    <circle cx="12" cy="8" r="4" stroke="#2563eb" strokeWidth="2"/>
                     <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"
-                      stroke="#60a5fa" strokeWidth="2" strokeLinecap="round"/>
+                      stroke="#2563eb" strokeWidth="2" strokeLinecap="round"/>
                   </svg>
                 </div>
               )}

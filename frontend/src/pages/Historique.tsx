@@ -98,7 +98,7 @@ const Historique: React.FC = () => {
         ticks: { color: '#6b7280', font: { size: 9 }, maxRotation: 0 },
       },
       y: {
-        grid: { color: 'rgba(255,255,255,0.05)' },
+        grid: { color: 'rgba(15,23,42,0.07)' },
         ticks: { color: '#6b7280', font: { size: 9 }, maxTicksLimit: 5 },
       },
     },

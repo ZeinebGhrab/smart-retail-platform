@@ -4,20 +4,20 @@
 
 /* ─── Design tokens — matches ChatIA.css palette ───────────────────────── */
 :root {
-  --db-bg:        #0f1117;
-  --db-surface:   #1a1f2e;
-  --db-surface2:  #222840;
-  --db-border:    #2a3050;
+  --db-bg:        #f3f5f9;
+  --db-surface:   #ffffff;
+  --db-surface2:  #eef1f7;
+  --db-border:    #e2e6f0;
   --db-blue:      #2563eb;
-  --db-blue-dim:  rgba(37, 99, 235, 0.15);
-  --db-green:     #4ade80;
-  --db-green-dim: rgba(74, 222, 128, 0.12);
-  --db-amber:     #f59e0b;
-  --db-amber-dim: rgba(245, 158, 11, 0.12);
-  --db-red:       #ef4444;
-  --db-red-dim:   rgba(239, 68, 68, 0.12);
-  --db-accent:    #60a5fa;
-  --db-text:      #e8edf8;
+  --db-blue-dim:  rgba(37, 99, 235, 0.10);
+  --db-green:     #15803d;
+  --db-green-dim: rgba(21, 128, 61, 0.10);
+  --db-amber:     #b45309;
+  --db-amber-dim: rgba(180, 83, 9, 0.10);
+  --db-red:       #dc2626;
+  --db-red-dim:   rgba(220, 38, 38, 0.10);
+  --db-accent:    #1d4ed8;
+  --db-text:      #111827;
   --db-muted:     #6b7280;
 }
 
@@ -257,7 +257,7 @@
 }
 
 .db-legend-line.blue  { background: #2563eb; }
-.db-legend-line.green { background: rgba(74, 222, 128, 0.5); }
+.db-legend-line.green { background: rgba(21, 128, 61, 0.55); }
 
 /* ─── Prediction card (SSE) ──────────────────────────────────────────────── */
 .db-pred-card {
@@ -320,9 +320,9 @@
 .db-pred-msg {
   margin-top: 12px;
   padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
   font-size: 11px;
-  color: #a0aec0;
+  color: #475569;
   line-height: 1.6;
 }
 
@@ -363,8 +363,8 @@
   margin-bottom: 8px;
 }
 
-.db-alert-item.critical { border-color: rgba(239, 68, 68, 0.35); }
-.db-alert-item.warning  { border-color: rgba(245, 158, 11, 0.35); }
+.db-alert-item.critical { border-color: rgba(220, 38, 38, 0.3); }
+.db-alert-item.warning  { border-color: rgba(180, 83, 9, 0.3); }
 
 .db-alert-icon {
   width: 32px;
