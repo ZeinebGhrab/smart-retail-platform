@@ -1,6 +1,34 @@
-// ============================================================
-// src/types/dashboard.types.ts — Types partagés Dashboard / SSE
-// ============================================================
+// ─── Dashboard Types ─────────────────────────────────────────────────────────
+
+export interface KPIData {
+  visitors: number;
+  visitorsVsYesterday: number;
+  revenue: number;
+  revenueVsLastWeek: number;
+  conversionRate: number;
+  conversionDelta: number;
+  activeAlerts: number;
+  untreatedAlerts: number;
+}
+
+export interface IntradayPoint {
+  hour: string;
+  today: number;
+  yesterday: number;
+}
+
+export interface PredictionData {
+  type: string;
+  date: string;
+  generated_at: string;
+  message: string;
+  prediction: {
+    visiteurs_prevus: number;
+    profil_dominant: string;
+    niveau_affluence: string;
+    heure_pointe: string;
+  };
+}
 
 export type AlertSeverity = 'critical' | 'warning' | 'info';
 
@@ -13,7 +41,7 @@ export interface AlertItem {
   unread: boolean;
 }
 
-export type NotifIconType = 'green' | 'red' | 'amber' | 'blue' | '';
+export type NotifIconType = 'red' | 'amber' | 'green' | 'blue' | '';
 
 export interface NotificationItem {
   id: number;
@@ -24,22 +52,4 @@ export interface NotificationItem {
   time: string;
   unread: boolean;
   isPrediction?: boolean;
-}
-
-// ── Payload reçu via SSE (event: llm_report) depuis N8N ─────
-// Correspond au payload posté par N8N sur POST /api/daily-report/
-// et rediffusé en temps réel sur GET /api/prediction/stream/
-export interface PredictionDetail {
-  visiteurs_prevus: number;
-  profil_dominant: string;
-  niveau_affluence: string;
-  heure_pointe: string;
-}
-
-export interface PredictionData {
-  type: 'llm_report';
-  date: string;
-  generated_at: string;
-  message: string;
-  prediction: PredictionDetail;
 }
