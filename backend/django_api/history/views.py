@@ -16,10 +16,7 @@ from django.http import StreamingHttpResponse
 from . import visitor_data as vd
 
 # ── Notifications N8N : persistance fichier JSON ────────────
-# N8N écrit le dernier rapport ici (depuis le nœud "Push SSE → Django",
-# en plus du broadcast SSE), ce qui permet au front de récupérer le
-# dernier rapport même après un rechargement de page / reconnexion.
-_NOTIF_DIR = Path(getattr(settings, "BACKEND_DIR", Path(__file__).resolve().parent.parent.parent)) / "data"
+_NOTIF_DIR  = Path(getattr(settings, "BACKEND_DIR", Path(__file__).resolve().parent.parent.parent)) / "data"
 _NOTIF_FILE = _NOTIF_DIR / "notifications.json"
 
 _DATE_PARAM = OpenApiParameter(
@@ -43,15 +40,13 @@ _sse_lock = threading.Lock()
 @extend_schema(
     tags=["Historique visiteurs"],
     summary="Historique journalier des visiteurs",
-    description="Retourne l'historique journalier des visiteurs (analytics) avec ventilation par genre et âge.",
     parameters=[_START_DATE_PARAM, _END_DATE_PARAM, _CAMERA_PARAM],
 )
 @api_view(["GET"])
 def visitor_history(request):
     start_date = request.query_params.get("start_date")
-    end_date = request.query_params.get("end_date")
-    camera = request.query_params.get("camera")
-
+    end_date   = request.query_params.get("end_date")
+    camera     = request.query_params.get("camera")
     result = vd.get_visitor_history(start_date=start_date, end_date=end_date, camera=camera)
     return Response(result)
 
@@ -59,14 +54,12 @@ def visitor_history(request):
 @extend_schema(
     tags=["Historique visiteurs"],
     summary="Nombre de visiteurs pour une date donnée",
-    description="Retourne le nombre de visiteurs (et le détail genre/âge) pour une date donnée (par défaut : la dernière date disponible).",
     parameters=[_DATE_PARAM, _CAMERA_PARAM],
 )
 @api_view(["GET"])
 def visitor_count(request):
-    date = request.query_params.get("date")
+    date   = request.query_params.get("date")
     camera = request.query_params.get("camera")
-
     result = vd.get_visitor_count(date=date, camera=camera)
     return Response(result)
 
@@ -74,14 +67,12 @@ def visitor_count(request):
 @extend_schema(
     tags=["Historique visiteurs"],
     summary="Flux horaire de visiteurs",
-    description="Retourne le nombre de visiteurs par heure pour une date donnée, ainsi que l'heure de pointe.",
     parameters=[_DATE_PARAM, _CAMERA_PARAM],
 )
 @api_view(["GET"])
 def hourly_flow(request):
-    date = request.query_params.get("date")
+    date   = request.query_params.get("date")
     camera = request.query_params.get("camera")
-
     result = vd.get_hourly_visitor_flow(date=date, camera=camera)
     return Response(result)
 
@@ -89,35 +80,23 @@ def hourly_flow(request):
 @extend_schema(
     tags=["Prévisions"],
     summary="Prévision du nombre de visiteurs",
-    description=(
-        "Prévoit le nombre de visiteurs pour une date donnée (par défaut : demain) via "
-        "régression linéaire sur l'historique + ajustement par jour de la semaine."
-    ),
     parameters=[_DATE_PARAM, _CAMERA_PARAM],
 )
 @api_view(["GET"])
 def forecast(request):
-    date = request.query_params.get("date")
+    date   = request.query_params.get("date")
     camera = request.query_params.get("camera")
-
     result = vd.forecast_visitors(target_date=date, camera=camera)
     return Response(result)
 
 
-@extend_schema(
-    tags=["Résumé"],
-    summary="KPIs globaux",
-    description="Retourne un résumé global : période couverte, total visiteurs, répartition par caméra / genre / tranche d'âge.",
-)
+@extend_schema(tags=["Résumé"], summary="KPIs globaux")
 @api_view(["GET"])
 def summary(request):
     return Response(vd.get_summary())
 
 
-@extend_schema(
-    tags=["Résumé"],
-    summary="Liste des caméras disponibles",
-)
+@extend_schema(tags=["Résumé"], summary="Liste des caméras disponibles")
 @api_view(["GET"])
 def cameras(request):
     return Response({"cameras": vd.list_cameras()})
@@ -140,7 +119,6 @@ def _append_notification(payload: dict) -> None:
     _NOTIF_DIR.mkdir(parents=True, exist_ok=True)
     history = _read_notifications()
     history.append(payload)
-    # Garde les 100 derniers rapports maximum
     history = history[-100:]
     with open(_NOTIF_FILE, "w", encoding="utf-8") as f:
         json.dump(history, f, ensure_ascii=False, indent=2)
@@ -149,7 +127,6 @@ def _append_notification(payload: dict) -> None:
 @extend_schema(
     tags=["Notifications — N8N"],
     summary="Dernière notification reçue de N8N",
-    description="Retourne le dernier rapport quotidien reçu via /api/daily-report/ (persisté en fichier JSON).",
 )
 @api_view(["GET"])
 def latest_notification(request):
@@ -162,18 +139,25 @@ def latest_notification(request):
 @extend_schema(
     tags=["Notifications — N8N"],
     summary="Historique des notifications reçues de N8N",
-    description="Retourne la liste des rapports quotidiens reçus via /api/daily-report/ (les plus récents en dernier).",
+    description=(
+        "Retourne la liste (tableau JSON) des rapports quotidiens reçus via /api/daily-report/.\n\n"
+        "**FIX #2** : retourne directement un tableau `[...]` et non plus un objet enveloppé "
+        "`{ count, results }` — le frontend Ionic peut ainsi itérer sans déballage supplémentaire."
+    ),
 )
 @api_view(["GET"])
 def notifications_history(request):
-    return Response({"count": len(_read_notifications()), "results": _read_notifications()})
+    # FIX #2 : retourner directement la liste, pas un dict enveloppé.
+    # Avant : Response({"count": ..., "results": [...]})  ← cassait le frontend
+    # Après : Response([...])                             ← tableau que fetchHistory() attend
+    return Response(_read_notifications())
 
 
 # ── SSE stream ───────────────────────────────────────────────
 
 def sse_stream(request):
     """
-    GET /api/daily-report/stream/
+    GET /api/prediction/stream/
     Connexion SSE longue durée — le Dashboard React s'y abonne
     pour recevoir les rapports quotidiens en temps réel.
     """
@@ -190,6 +174,8 @@ def sse_stream(request):
             while True:
                 try:
                     payload = q.get(timeout=30)
+                    # FIX (déjà correct) : émet "event: llm_report" — le hook
+                    # useSSEPrediction.ts doit écouter addEventListener('llm_report', ...)
                     yield f"event: llm_report\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
                 except queue.Empty:
                     # Keepalive toutes les 30 s
@@ -204,7 +190,7 @@ def sse_stream(request):
                     pass
 
     response = StreamingHttpResponse(event_stream(), content_type="text/event-stream")
-    response["Cache-Control"] = "no-cache"
+    response["Cache-Control"]    = "no-cache"
     response["X-Accel-Buffering"] = "no"
     return response
 
@@ -215,10 +201,9 @@ def sse_stream(request):
     tags=["Rapport quotidien — N8N"],
     summary="Réception du rapport quotidien depuis N8N",
     description=(
-        "Reçoit le payload structuré généré par N8N (Formater Payload SSE) "
-        "et le diffuse immédiatement à tous les clients SSE connectés "
-        "(Dashboard React + ChatIA Ionic).\n\n"
-        "Payload attendu (PredictionData) :\n"
+        "Reçoit le payload structuré généré par N8N et le diffuse immédiatement "
+        "à tous les clients SSE connectés.\n\n"
+        "Payload attendu :\n"
         "```json\n"
         "{\n"
         '  "type": "llm_report",\n'
@@ -251,7 +236,7 @@ def daily_report(request):
     if missing:
         return Response({"error": f"Champs manquants : {', '.join(missing)}"}, status=400)
 
-    # Persistance fichier JSON (pour /api/notifications/latest/ et /history/)
+    # Persistance fichier JSON
     _append_notification(payload)
 
     # Broadcast à tous les clients SSE connectés
@@ -274,8 +259,5 @@ def daily_report(request):
 
 
 # ── Alias — noms attendus par history/urls.py ────────────────
-# (le endpoint SSE est consommé par le Dashboard React via
-#  useSSEPrediction.ts ; le endpoint POST est appelé par le
-#  workflow N8N "Push SSE → Django")
-prediction_stream = sse_stream
+prediction_stream    = sse_stream
 receive_daily_report = daily_report

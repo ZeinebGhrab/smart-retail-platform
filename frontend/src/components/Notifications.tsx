@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  IonPage, IonContent, IonBadge,
-  IonIcon, IonSpinner,
+  IonBadge,
+  IonIcon,
+  IonSpinner,
 } from '@ionic/react';
 import { notificationsOutline, closeOutline, chevronDownOutline, chevronUpOutline } from 'ionicons/icons';
 import './Notifications.css';
@@ -21,7 +22,7 @@ interface Notification {
 }
 
 // ── Helpers ───────────────────────────────────────────────
-const API = import.meta.env?.VITE_API_URL || 'http://localhost:8000/api';
+const API = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000/api';
 const POLL_MS = 5000;
 
 function fmtTime(iso: string) {
@@ -39,34 +40,43 @@ function fmtDate(str: string) {
 function levelColor(niveau: string): string {
   if (!niveau) return '#64748b';
   const n = niveau.toLowerCase();
-  if (n.includes('très')) return '#f87171';
+  if (n.includes('très'))                         return '#f87171';
   if (n.includes('élevé') || n.includes('eleve')) return '#fb923c';
   if (n.includes('modéré') || n.includes('modere')) return '#fbbf24';
   return '#34d399';
 }
 
 // ── Fetch helpers ─────────────────────────────────────────
+
 async function fetchLatest(): Promise<Notification | null> {
   try {
     const r = await fetch(`${API}/notifications/latest/`);
-    if (r.ok) return await r.json();
-  } catch {}
-  try {
-    const r = await fetch(`http://localhost:8001/latest_notification.json?t=${Date.now()}`);
-    if (r.ok) return await r.json();
-  } catch {}
+    if (r.ok) {
+      const json = await r.json();
+      // Peut être null / objet vide si aucune notification
+      if (json && json.id !== undefined) return json as Notification;
+    }
+  } catch (e) {
+    console.warn('[Notifications] fetchLatest error:', e);
+  }
+  // FIX #4 : suppression du fallback localhost:8001 inutilisable hors dev local
   return null;
 }
 
 async function fetchHistory(): Promise<Notification[]> {
   try {
     const r = await fetch(`${API}/notifications/history/`);
-    if (r.ok) return await r.json();
-  } catch {}
-  try {
-    const r = await fetch(`http://localhost:8001/notifications_history.json?t=${Date.now()}`);
-    if (r.ok) return await r.json();
-  } catch {}
+    if (r.ok) {
+      const json = await r.json();
+      // FIX #2 : le backend retourne { count, results: [...] } pas un tableau brut.
+      // On gère les deux formes pour être robuste à un futur changement d'API.
+      if (Array.isArray(json)) return json as Notification[];
+      if (json && Array.isArray(json.results)) return json.results as Notification[];
+    }
+  } catch (e) {
+    console.warn('[Notifications] fetchHistory error:', e);
+  }
+  // FIX #4 : suppression du fallback localhost:8001
   return [];
 }
 
@@ -76,9 +86,9 @@ interface PanelProps {
 }
 
 const NotificationPanel: React.FC<PanelProps> = ({ onClose }) => {
-  const [latest, setLatest] = useState<Notification | null>(null);
-  const [history, setHistory] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [latest,   setLatest]   = useState<Notification | null>(null);
+  const [history,  setHistory]  = useState<Notification[]>([]);
+  const [loading,  setLoading]  = useState(true);
   const [expanded, setExpanded] = useState<number | null>(0);
   const lastId = useRef<number | null>(null);
 
@@ -197,12 +207,20 @@ const NotificationPanel: React.FC<PanelProps> = ({ onClose }) => {
 };
 
 // ── Bell Icon (à placer dans le header du Dashboard) ─────
-export const NotificationBell: React.FC = () => {
-  const [open, setOpen] = useState(false);
+// FIX #5 : accepte externalUnread pour se synchroniser avec le badgeCount du Dashboard
+interface BellProps {
+  externalUnread?: number;
+  onOpen?: () => void;
+}
+
+export const NotificationBell: React.FC<BellProps> = ({ externalUnread, onOpen }) => {
+  const [open,   setOpen]   = useState(false);
   const [unread, setUnread] = useState(0);
   const lastId = useRef<number | null>(null);
 
+  // Compte local basé sur l'API polling (utilisé si externalUnread n'est pas fourni)
   useEffect(() => {
+    if (externalUnread !== undefined) return; // piloté de l'extérieur
     const check = async () => {
       const latest = await fetchLatest();
       if (latest && latest.id !== lastId.current) {
@@ -213,19 +231,22 @@ export const NotificationBell: React.FC = () => {
     check();
     const t = setInterval(check, POLL_MS);
     return () => clearInterval(t);
-  }, []);
+  }, [externalUnread]);
+
+  const displayUnread = externalUnread !== undefined ? externalUnread : unread;
 
   const handleOpen = () => {
     setOpen(true);
     setUnread(0);
+    onOpen?.();
   };
 
   return (
     <div className="notif-bell-wrapper">
       <button className="notif-bell-btn" onClick={handleOpen} aria-label="Notifications">
         <IonIcon icon={notificationsOutline} />
-        {unread > 0 && (
-          <IonBadge className="notif-bell-badge">{unread}</IonBadge>
+        {displayUnread > 0 && (
+          <IonBadge className="notif-bell-badge">{displayUnread}</IonBadge>
         )}
       </button>
 

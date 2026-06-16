@@ -24,11 +24,11 @@ const App: React.FC = () => (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
           <IonRouterOutlet>
-            <Route exact path="/dashboard"   component={Dashboard}  /> 
-            <Route exact path="/chat" component={ChatIA} />
+            <Route exact path="/dashboard"   component={Dashboard}  />
+            <Route exact path="/chat"        component={ChatIA}     />
             <Route exact path="/predictions" component={Historique} />
-            {/* Add other routes here as you build them */}
-            <Redirect exact from="/" to="/chat" />
+            {/* FIX #1 : rediriger vers /dashboard au démarrage, pas /chat */}
+            <Redirect exact from="/" to="/dashboard" />
           </IonRouterOutlet>
         </div>
         <TabBar />

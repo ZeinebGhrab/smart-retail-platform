@@ -16,19 +16,19 @@ interface UseSSEPredictionReturn {
  *
  * Django endpoint example:
  *   GET /api/prediction/stream/  →  text/event-stream
- *   Each event: data: { ...PredictionData }
+ *   Each event: event: llm_report\ndata: { ...PredictionData }
  *
- * n8n node "Envoyer au Chatbot (SSE)" should POST to:
+ * n8n node "Push SSE → Django" should POST to:
  *   POST /api/daily-report/
  *   body: JSON PredictionData
  * Django then buffers it and pushes via SSE to all connected clients.
  */
 export function useSSEPrediction(): UseSSEPredictionReturn {
-  const [prediction, setPrediction] = useState<PredictionData | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
+  const [prediction, setPrediction]       = useState<PredictionData | null>(null);
+  const [isConnected, setIsConnected]     = useState(false);
   const [lastReceivedAt, setLastReceivedAt] = useState<Date | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const esRef = useRef<EventSource | null>(null);
+  const [error, setError]                 = useState<string | null>(null);
+  const esRef    = useRef<EventSource | null>(null);
   const retryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const connect = useCallback(() => {
@@ -37,7 +37,7 @@ export function useSSEPrediction(): UseSSEPredictionReturn {
     }
 
     const url = `${API_BASE_URL}/prediction/stream/`;
-    const es = new EventSource(url);
+    const es  = new EventSource(url);
     esRef.current = es;
 
     es.onopen = () => {
@@ -45,17 +45,30 @@ export function useSSEPrediction(): UseSSEPredictionReturn {
       setError(null);
     };
 
+    // Événements génériques (sans nom) — keepalive ou fallback
     es.onmessage = (event: MessageEvent) => {
       try {
         const data: PredictionData = JSON.parse(event.data);
         setPrediction(data);
         setLastReceivedAt(new Date());
       } catch (e) {
-        console.error('[SSE] Parse error:', e);
+        console.error('[SSE] Parse error (onmessage):', e);
       }
     };
 
-    // Optional: listen for named event "prediction" in addition to generic message
+    // FIX #3 : écouter "llm_report" — nom exact émis par Django views.py
+    // yield f"event: llm_report\ndata: {json.dumps(payload)}\n\n"
+    es.addEventListener('llm_report', (event: MessageEvent) => {
+      try {
+        const data: PredictionData = JSON.parse(event.data);
+        setPrediction(data);
+        setLastReceivedAt(new Date());
+      } catch (e) {
+        console.error('[SSE] llm_report event parse error:', e);
+      }
+    });
+
+    // Garde l'écouteur "prediction" au cas où le nom changerait à nouveau
     es.addEventListener('prediction', (event: MessageEvent) => {
       try {
         const data: PredictionData = JSON.parse(event.data);
