@@ -1,7 +1,6 @@
 # ── Django API ───────────────────────────────────────────────
 Django>=5.0,<6.0
 djangorestframework>=3.15
-djangorestframework-simplejwt>=5.3
 django-cors-headers>=4.3
 drf-spectacular>=0.27
 pandas>=2.0
@@ -13,3 +12,7 @@ numpy>=1.24
 # (Conteneur ollama déjà présent, modèle llama3.2 déjà chargé).
 # La KB (8 docs) est trop petite pour justifier ChromaDB.
 requests>=2.31
+cryptography
+
+# ── FCM (Firebase Cloud Messaging) ───────────────────────────
+firebase-admin>=6.0.0

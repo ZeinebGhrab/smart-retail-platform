@@ -1,6 +1,12 @@
+# ============================================================
+# urls.py — Routes API avec endpoints FCM 
+# backend/django_api/history/urls.py
+# ============================================================
+
 from django.urls import path
 from . import views
 from .chat_view import chat
+from ..views import save_fcm_token, send_fcm  # Import des fonctions FCM
 
 urlpatterns = [
     # ── Analytics ────────────────────────────────────────────
@@ -12,11 +18,14 @@ urlpatterns = [
     path("history/cameras/",           views.cameras,         name="history-cameras"),
 
     # ── Notifications N8N ────────────────────────────────────
-    path("notifications/latest/",      views.latest_notification,    name="notifications-latest"),
-    path("notifications/history/",     views.notifications_history,  name="notifications-history"),
-    path("prediction/stream/",         views.prediction_stream,      name="prediction-stream"),   # SSE → frontend écoute ici
-    path("daily-report/",              views.receive_daily_report,   name="daily-report"),        # N8N poste ici
-
+    path("notifications/latest/",      views.latest_notification),  # lecture fichier JSON
+    path("prediction/stream/",         views.prediction_stream),    # SSE → frontend écoute ici
+    path("daily-report/",              views.receive_daily_report), # N8N poste ici
+    
+    # ── FCM (Firebase Cloud Messaging) ───────────────────────
+    path('fcm-token/',                 save_fcm_token, name='save-fcm-token'),
+    path('send-fcm/',                  send_fcm, name='send-fcm'),
+    
     # ── Chat RAG ─────────────────────────────────────────────
     path("chat/",                      chat, name="chat-rag"),
 ]
