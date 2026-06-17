@@ -1,5 +1,5 @@
 /* ============================================================
-   TabBar — navigation principale (3 onglets réels de l'app)
+   TabBar — navigation principale 
    ============================================================ */
 
 .tab-bar-wrapper {
@@ -72,4 +72,146 @@
 
 .tab-btn:not(.active):hover {
   color: #4b5563;
+}
+/* ── Bouton Logout ─────────────────────────────────────────── */
+
+.tab-btn-logout {
+  color: #9ca3af;
+}
+
+.tab-btn-logout:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.07);
+}
+
+.tab-btn-logout:active {
+  transform: scale(0.94);
+}
+
+/* ── Modal de confirmation ──────────────────────────────────── */
+
+.logout-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(17, 24, 39, 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: overlay-in 0.18s ease;
+}
+
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.logout-modal {
+  background: #fff;
+  border-radius: 20px;
+  padding: 32px 28px 24px;
+  max-width: 320px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+  text-align: center;
+  animation: modal-in 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.88) translateY(12px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0);    }
+}
+
+.logout-modal-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+}
+
+.logout-modal-icon .ti {
+  font-size: 26px;
+  color: #ef4444;
+}
+
+.logout-modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 8px;
+}
+
+.logout-modal-text {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0 0 24px;
+  line-height: 1.5;
+}
+
+.logout-modal-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.logout-modal-btn {
+  flex: 1;
+  padding: 11px 0;
+  border-radius: 12px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.12s ease;
+}
+
+.logout-modal-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.logout-modal-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.logout-modal-btn.cancel {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.logout-modal-btn.cancel:hover:not(:disabled) {
+  background: #e5e7eb;
+}
+
+.logout-modal-btn.confirm {
+  background: #ef4444;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logout-modal-btn.confirm:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+/* Spinner pendant le logout */
+.logout-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
