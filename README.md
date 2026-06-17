@@ -114,6 +114,11 @@ Question utilisateur (langage naturel)
 git clone <url-du-repo>
 cd anavid-smart-retail-platform
 
+# 1. Configurer les secrets (jamais commités, voir section 9)
+cp .env.example .env
+# → éditer .env et renseigner EMAIL_HOST_USER / EMAIL_HOST_PASSWORD
+
+# 2. Lancer la stack
 docker compose up --build
 ```
 
@@ -154,8 +159,9 @@ docker compose up --build django_api
 | Service | Port | URL | Description |
 |---|---|---|---|
 | `frontend` | 5173 | http://localhost:5173 | App Ionic/React (hot-reload) |
-| `django_api` | 8000 | http://localhost:8000 | API REST + Chat IA RAG |
+| `django_api` | 8000 | http://localhost:8000 | API REST + Auth + Chat IA RAG |
 | `ollama` | 11434 | http://localhost:11434 | LLM local Llama 3.2 |
+| `n8n` | 5678 | http://localhost:5678 | Orchestrateur — rapport quotidien (6h00) |
 | `benchmark` | — | one-shot | Sélection automatique du modèle |
 
 ### Communication interne Docker
@@ -215,6 +221,14 @@ Documentation Swagger interactive : http://localhost:8000/api/docs/
 
 | Méthode | Endpoint | Description |
 |---|---|---|
+| `POST` | `/api/auth/register/` | Inscription (e-mail + mot de passe) |
+| `POST` | `/api/auth/login/` | Connexion — retourne les tokens JWT |
+| `POST` | `/api/auth/refresh/` | Renouvellement de l'access token |
+| `GET` | `/api/auth/me/` | Profil de l'utilisateur connecté |
+| `POST` | `/api/auth/logout/` | Déconnexion (blacklist du refresh token) |
+| `POST` | `/api/auth/password-reset/request/` | Envoie un code OTP par e-mail (Gmail SMTP) |
+| `POST` | `/api/auth/password-reset/verify/` | Vérifie le code OTP |
+| `POST` | `/api/auth/password-reset/confirm/` | Change le mot de passe avec le code OTP |
 | `POST` | `/api/chat/` | **Chat IA RAG** — question en langage naturel |
 | `GET` | `/api/history/visitors/` | Historique journalier (genre, âge) |
 | `GET` | `/api/history/visitors/count/` | Nombre de visiteurs par date |
@@ -222,6 +236,10 @@ Documentation Swagger interactive : http://localhost:8000/api/docs/
 | `GET` | `/api/history/visitors/forecast/` | Prévision (régression linéaire) |
 | `GET` | `/api/history/summary/` | KPIs globaux |
 | `GET` | `/api/history/cameras/` | Liste des caméras |
+| `GET` | `/api/notifications/latest/` | Dernière notification reçue de N8N |
+| `GET` | `/api/notifications/history/` | Historique des notifications N8N |
+| `GET` | `/api/prediction/stream/` | Flux SSE temps réel (écouté par le Dashboard) |
+| `POST` | `/api/daily-report/` | Réception du rapport quotidien (appelé par N8N) |
 
 ### Paramètres communs
 
@@ -273,40 +291,57 @@ Générés dans `backend/results/` :
 ```
 anavid-smart-retail-platform/
 │
-├── docker-compose.yml               # Orchestration des 4 services
+├── docker-compose.yml               # Orchestration des 5 services
 ├── Makefile                         # Commandes raccourcies (Linux/Mac)
 ├── run.bat                          # Commandes raccourcies (Windows)
+├── .env                             # Secrets locaux (Gmail SMTP) — jamais commité
+├── .env.example                     # Modèle versionné, sans secrets
+├── .gitignore
 ├── README.md                        # Ce fichier
 │
 ├── frontend/                        # App Ionic React (Vite)
 │   ├── Dockerfile
-│   ├── src/
-│   │   ├── pages/
-│   │   │   ├── ChatIA.tsx           # Interface chat RAG
-│   │   │   ├── ChatIA.css
-│   │   │   └── Historique.tsx       # Dashboard analytique
-│   │   └── services/
-│   │       └── api.ts               # Client HTTP vers Django
-│   └── .env                         # VITE_API_URL=http://localhost:8000/api
+│   ├── README.md
+│   ├── .env                         # VITE_API_URL=http://localhost:8000/api
+│   └── src/
+│       ├── App.tsx                  # Routage (public: /login, /register · protégé: /dashboard, /chat, /predictions)
+│       ├── components/              # TabBar, Notifications, PrivateRoute
+│       ├── hooks/                   # useSSEPrediction.ts (flux SSE temps réel)
+│       ├── pages/                   # Login, Register, Dashboard, ChatIA, Historique
+│       ├── services/                # api.ts, auth.ts, chatBridge.ts (clients HTTP)
+│       ├── theme/                   # variables.css (thème Ionic)
+│       └── types/                   # Types partagés (dashboard.types.ts)
 │
 └── backend/
+    ├── README.md
     ├── django_api/                  # API REST Django (port 8000)
     │   ├── Dockerfile               # Image légère ~200 Mo (sans torch)
     │   ├── requirements.txt         # Django, DRF, pandas, requests
+    │   ├── README.md
+    │   ├── accounts/                # App auth — inscription/connexion/JWT/reset mdp par e-mail
+    │   │   ├── models.py            # User (auth par e-mail) + PasswordResetToken (OTP)
+    │   │   ├── views.py             # register, login, me, logout, password-reset/*
+    │   │   └── urls.py
     │   ├── config/
-    │   │   ├── settings.py
+    │   │   ├── settings.py          # Lit EMAIL_*, OLLAMA_*, DB_* depuis l'environnement
     │   │   └── urls.py
     │   └── history/
-    │       ├── views.py             # Endpoints historique visiteurs
+    │       ├── views.py             # Endpoints analytics + notifications N8N + SSE
     │       ├── visitor_data.py      # Lecture CSV + calculs analytiques
     │       ├── rag_pipeline.py      # Pipeline RAG (Retrieval + Ollama)
     │       ├── chat_view.py         # Endpoint POST /api/chat/
     │       └── urls.py
     │
+    ├── n8n/                         # Orchestrateur de workflows (rapport quotidien 6h00)
+    │   └── workflows/
+    │       └── ShopAnalyticsVersionFinal-2.json
+    │
     ├── scripts/                     # Benchmark LLM (one-shot)
     │   ├── config.py                # VRAM, modèles candidats, seuils
     │   ├── pull_models.py           # Filtrage VRAM + pull Ollama
-    │   └── benchmark.py             # TTFT, throughput, JSON, hallucinations
+    │   ├── benchmark.py             # TTFT, throughput, JSON, hallucinations
+    │   ├── rag_eval/                # Évaluation qualité du pipeline RAG
+    │   └── results/                 # Rapports rag_eval générés
     │
     ├── data/
     │   └── shoppingclub_2025_2026.csv   # Historique visiteurs (349 jours)
@@ -324,7 +359,25 @@ anavid-smart-retail-platform/
 
 ## 9. Variables d'environnement
 
-### `django_api` (défini dans `docker-compose.yml`)
+### Fichier `.env` (racine du projet) — secrets, **jamais commité**
+
+`docker compose` lit automatiquement le fichier `.env` situé à la racine pour substituer les `${VARIABLES}` déclarées dans `docker-compose.yml`. Ce fichier contient les vrais identifiants Gmail et **ne doit jamais être poussé sur Git** — il est listé dans `.gitignore`.
+
+```bash
+cp .env.example .env
+# puis éditer .env avec vos propres valeurs
+```
+
+| Variable | Description |
+|---|---|
+| `EMAIL_HOST_USER` | Adresse Gmail utilisée pour l'envoi des e-mails OTP (réinitialisation de mot de passe) |
+| `EMAIL_HOST_PASSWORD` | **Mot de passe d'application** Gmail (16 caractères) — pas le mot de passe du compte |
+
+> ⚠️ **Sécurité** — Ne jamais utiliser le mot de passe principal du compte Gmail. Générer un mot de passe d'application dédié sur [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) (nécessite la validation en 2 étapes activée sur le compte Google). Si ces identifiants ont déjà été commités par le passé, ils restent visibles dans l'historique Git même après suppression : il faut alors révoquer ce mot de passe d'application depuis le compte Google et en générer un nouveau.
+
+`.env.example` est le modèle versionné (sans secrets) servant de documentation pour quiconque clone le projet.
+
+### `django_api` (définies dans `docker-compose.yml`)
 
 | Variable | Valeur par défaut | Description |
 |---|---|---|
@@ -332,6 +385,12 @@ anavid-smart-retail-platform/
 | `OLLAMA_MODEL` | `llama3.2:3b-instruct-q4_K_M` | Modèle LLM utilisé |
 | `VISITOR_DATA_CSV` | `/app/data/shoppingclub_2025_2026.csv` | Chemin du CSV visiteurs |
 | `DJANGO_DEBUG` | `true` | Mode debug Django |
+| `EMAIL_HOST` | `smtp.gmail.com` | Serveur SMTP |
+| `EMAIL_PORT` | `587` | Port SMTP (TLS) |
+| `EMAIL_USE_TLS` | `true` | Chiffrement TLS |
+| `EMAIL_HOST_USER` | *(depuis `.env`)* | Voir ci-dessus |
+| `EMAIL_HOST_PASSWORD` | *(depuis `.env`)* | Voir ci-dessus |
+| `DEFAULT_FROM_EMAIL` | `Anavid Store 360 <${EMAIL_HOST_USER}>` | Expéditeur affiché dans les e-mails envoyés |
 
 ### `frontend` (fichier `frontend/.env`)
 
