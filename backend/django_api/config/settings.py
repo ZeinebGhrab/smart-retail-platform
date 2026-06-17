@@ -12,6 +12,7 @@ Base de données :
     DB_HOST, DB_PORT pour basculer.
 """
 
+from datetime import timedelta
 from pathlib import Path
 import os
 
@@ -33,10 +34,17 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "rest_framework_simplejwt.token_blacklist",
     "drf_spectacular",
     "corsheaders",
+    "accounts",
     "history",
 ]
+
+# ------------------------------------------------------------
+# Authentification — modèle utilisateur personnalisé (e-mail)
+# ------------------------------------------------------------
+AUTH_USER_MODEL = "accounts.User"
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
@@ -103,7 +111,9 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # ------------------------------------------------------------
-# CORS — APIs ouvertes (pas d'authentification, dev rapide)
+# CORS — toutes origines autorisées (dev). L'authentification se fait
+# via JWT (header Authorization), pas via cookies/sessions — CORS
+# ouvert n'expose donc pas de session à voler.
 # ------------------------------------------------------------
 CORS_ALLOW_ALL_ORIGINS = True
 
@@ -111,15 +121,33 @@ CORS_ALLOW_ALL_ORIGINS = True
 # Django REST Framework
 # ------------------------------------------------------------
 REST_FRAMEWORK = {
+    # Permission par défaut : ouverte (endpoints history/ non protégés).
+    # Les vues accounts/ qui le nécessitent (ex: /api/auth/me/) déclarent
+    # explicitement IsAuthenticated via @permission_classes.
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.AllowAny",
     ],
-    "DEFAULT_AUTHENTICATION_CLASSES": [],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
         "rest_framework.renderers.BrowsableAPIRenderer",
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+# ------------------------------------------------------------
+# JWT (djangorestframework-simplejwt) — voir accounts/views.py
+# ------------------------------------------------------------
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=14),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "user_id",
 }
 
 # ------------------------------------------------------------

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { IonPage, IonContent } from '@ionic/react';
 import { useHistory } from 'react-router-dom';
+import { register, AuthApiError } from '../services/auth';
 import './Auth.css';
 
 // ─── Inline SVG icons ────────────────────────────────────────
@@ -149,11 +150,20 @@ const Register: React.FC = () => {
 
     setLoading(true);
     try {
-      // TODO: remplacer par un vrai appel API
-      await new Promise(r => setTimeout(r, 1400));
+      await register(fields);
       setDone(true);
-    } catch {
-      setGlobalErr('Inscription impossible. Réessayez dans un moment.');
+    } catch (err) {
+      if (err instanceof AuthApiError) {
+        if (Object.keys(err.fieldErrors).length) {
+          // Erreurs de validation par champ (ex: e-mail déjà utilisé) →
+          // affichées directement sous le champ concerné, comme la validation locale.
+          setErrors(prev => ({ ...prev, ...err.fieldErrors }));
+        } else {
+          setGlobalErr(err.message);
+        }
+      } else {
+        setGlobalErr('Inscription impossible. Réessayez dans un moment.');
+      }
     } finally {
       setLoading(false);
     }
@@ -175,11 +185,11 @@ const Register: React.FC = () => {
               <h2 className="auth-success-title">Compte créé !</h2>
               <p className="auth-success-text">
                 Votre commerce <strong>{fields.storeName}</strong> est prêt.<br/>
-                Vous pouvez maintenant vous connecter.
+                Vous êtes maintenant connecté.
               </p>
               <button className="auth-btn" style={{ marginTop: 8 }}
-                onClick={() => history.replace('/login')}>
-                Se connecter
+                onClick={() => history.replace('/dashboard')}>
+                Accéder à mon tableau de bord
               </button>
             </div>
           </div>

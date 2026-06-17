@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { IonPage, IonContent } from '@ionic/react';
 import { useHistory } from 'react-router-dom';
+import { login, AuthApiError } from '../services/auth';
 import './Auth.css';
 
 // ─── Inline SVG icons (no extra dep) ────────────────────────
@@ -87,17 +88,14 @@ const Login: React.FC = () => {
 
     setLoading(true);
     try {
-      // TODO: remplacer par un vrai appel API
-      await new Promise(r => setTimeout(r, 1200));
-
-      // Simulation : si email = test@test.com → succès
-      if (email === 'test@test.com' && password === 'password') {
-        history.replace('/dashboard');
+      await login(email, password, remember);
+      history.replace('/dashboard');
+    } catch (err) {
+      if (err instanceof AuthApiError) {
+        setGlobalErr(err.message);
       } else {
-        setGlobalErr('Identifiants incorrects. Vérifiez votre e-mail et mot de passe.');
+        setGlobalErr('Connexion impossible. Réessayez dans un moment.');
       }
-    } catch {
-      setGlobalErr('Connexion impossible. Réessayez dans un moment.');
     } finally {
       setLoading(false);
     }

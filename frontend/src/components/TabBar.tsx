@@ -16,6 +16,11 @@ const TabBar: React.FC = () => {
   const history  = useHistory();
   const location = useLocation();
 
+  // Pas de barre d'onglets sur les écrans d'authentification.
+  if (location.pathname === '/login' || location.pathname === '/register') {
+    return null;
+  }
+
   const go = (path: string) => history.push(path);
   const active = (path: string) => location.pathname === path;
 
