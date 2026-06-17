@@ -24,6 +24,8 @@ import {
 import './Dashboard.css';
 // FIX: import nommé — NotificationBell est un named export dans Notifications.tsx
 import { NotificationBell } from '../components/Notifications';
+import { useHistory } from 'react-router-dom';
+import { sendToChat } from '../services/chatBridge';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip);
 
@@ -90,6 +92,7 @@ const AlertRow: React.FC<AlertRowProps> = ({ alert }) => {
 };
 
 const Dashboard: React.FC = () => {
+  const history = useHistory();
   const [activeTab,     setActiveTab]     = useState("Vue d'ensemble");
   const [notifOpen,     setNotifOpen]     = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
@@ -162,6 +165,13 @@ const Dashboard: React.FC = () => {
   }, []);
 
   // FIX: fonction centralisée — ouvre le panel ET remet le badge à 0
+  const handleNotifClick = (n: NotificationItem) => {
+    const msg = `${n.title} : ${n.msg}`;
+    sendToChat(msg);
+    setNotifOpen(false);
+    history.push('/chat');
+  };
+
   const handleNotifOpen = useCallback(() => {
     setNotifOpen(true);
     setBadgeCount(0);
@@ -329,7 +339,7 @@ const Dashboard: React.FC = () => {
             </div>
             <div className="db-notif-scroll">
               {notifications.map(n => (
-                <div key={n.id} className="db-notif-item">
+                <div key={n.id} className="db-notif-item" onClick={() => handleNotifClick(n)} style={{ cursor: 'pointer' }}>
                   <div className={`db-notif-icon ${n.iconType}`}>
                     <span className={`ti ti-${n.icon}`} aria-hidden="true" />
                   </div>
@@ -348,7 +358,7 @@ const Dashboard: React.FC = () => {
 
       {/* ── SSE Toast ─────────────────────────────────────────────── */}
       {toastData && (
-        <div className="db-sse-toast" role="alert">
+        <div className="db-sse-toast" role="alert" onClick={() => { if (toastData) { sendToChat(`Rapport IA n8n : ${toastData.msg}`); setToastData(null); history.push('/chat'); } }} style={{ cursor: 'pointer' }}>
           <div className="db-toast-header">
             <div className="db-toast-label">
               <span className="ti ti-brain" aria-hidden="true" /> ShopAnalytics — n8n
