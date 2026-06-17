@@ -34,7 +34,9 @@ dist/
 .vite/
 *.local
 frontend/public
-
+frontend/.env
+.env
+*.env
 
 # ── Docker ──────────────────────────────────────────────────
 *.log
