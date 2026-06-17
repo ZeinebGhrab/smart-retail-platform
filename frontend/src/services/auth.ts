@@ -225,3 +225,21 @@ export async function getMe(): Promise<AuthUser> {
   }
   return res.json() as Promise<AuthUser>;
 }
+// ── Mot de passe oublié ──────────────────────────────────────
+
+export async function requestPasswordReset(email: string): Promise<{ detail: string }> {
+  return postJSON('/auth/password-reset/request/', { email });
+}
+
+export async function verifyResetCode(email: string, code: string): Promise<{ detail: string }> {
+  return postJSON('/auth/password-reset/verify/', { email, code });
+}
+
+export async function confirmPasswordReset(
+  email: string,
+  code: string,
+  password: string,
+  confirm: string,
+): Promise<{ detail: string }> {
+  return postJSON('/auth/password-reset/confirm/', { email, code, password, confirm });
+}

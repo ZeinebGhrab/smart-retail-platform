@@ -68,9 +68,6 @@ services:
     restart: "no"
 
   # ── Backend Django — API REST + RAG ─────────────────────────
-  # Accès    : http://localhost:8000/api/
-  # Swagger  : http://localhost:8000/api/docs/
-  # Chat RAG : POST http://localhost:8000/api/chat/
   django_api:
     build:
       context: ./backend
@@ -83,7 +80,7 @@ services:
       - "8000:8000"
     volumes:
       - ./backend/django_api:/app
-      - ./backend/scripts:/workspace/scripts 
+      - ./backend/scripts:/workspace/scripts
       - ./backend/data:/app/data
       - ./backend/dataset:/app/dataset
       - ./backend/results:/app/results
@@ -92,10 +89,16 @@ services:
       - VISITOR_DATA_CSV=/app/data/shoppingclub_2025_2026.csv
       - OLLAMA_HOST=http://ollama:11434
       - OLLAMA_MODEL=llama3.2:3b-instruct-q4_K_M
+      # ── Gmail SMTP ───────────────────────────────────────────
+      - EMAIL_HOST=smtp.gmail.com
+      - EMAIL_PORT=587
+      - EMAIL_USE_TLS=true
+      - EMAIL_HOST_USER=zeinebghrab8@gmail.com
+      - EMAIL_HOST_PASSWORD=tglpgyjvvvpgxmrv
+      - DEFAULT_FROM_EMAIL=Anavid Store 360 <zeinebghrab8@gmail.com>
     restart: unless-stopped
 
   # ── Frontend Ionic React — dev (hot-reload) ──────────────────
-  # Accès : http://localhost:5173
   frontend:
     build:
       context: ./frontend
@@ -110,7 +113,6 @@ services:
     restart: unless-stopped
 
   # ── Orchestrateur de workflows — N8N ─────────────────────────
-  # Accès UI : http://localhost:5678
   n8n:
     image: n8nio/n8n:latest
     container_name: shopanalytics-n8n
@@ -131,7 +133,7 @@ services:
       - N8N_SECURE_COOKIE=false
     volumes:
       - n8n_data:/home/node/.n8n
-      - ./backend/n8n/workflows:/workflows   # pour import au démarrage
+      - ./backend/n8n/workflows:/workflows
 
 volumes:
   ollama_models:

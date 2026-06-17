@@ -89,3 +89,30 @@ class LoginSerializer(serializers.Serializer):
             self.fail("inactive")
         attrs["user"] = user
         return attrs
+
+# ── Mot de passe oublié ──────────────────────────────────────
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class PasswordResetVerifySerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    code  = serializers.CharField(min_length=6, max_length=6)
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    email    = serializers.EmailField()
+    code     = serializers.CharField(min_length=6, max_length=6)
+    password = serializers.CharField(
+        write_only=True,
+        trim_whitespace=False,
+        min_length=6,
+        error_messages={"min_length": "Minimum 6 caractères"},
+    )
+    confirm  = serializers.CharField(write_only=True, trim_whitespace=False)
+
+    def validate(self, attrs):
+        if attrs["password"] != attrs["confirm"]:
+            raise serializers.ValidationError({"confirm": "Les mots de passe ne correspondent pas."})
+        return attrs
