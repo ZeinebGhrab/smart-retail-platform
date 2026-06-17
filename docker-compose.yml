@@ -106,10 +106,23 @@ services:
     ports:
       - "5173:5173"
     volumes:
-      - ./frontend:/app
+      - ./frontend:/app                        # volume dev → Vite lit .env du host
       - frontend_node_modules:/app/node_modules
     environment:
       - NODE_ENV=development
+      # ── Firebase / FCM — lues par Vite via import.meta.env ───
+      # ⚠️  Ces variables DOUBLENT celles du .env comme filet de sécurité.
+      #     Vite en mode dev avec volume lit directement frontend/.env ;
+      #     les env Docker ci-dessous couvrent les cas où le .env est absent.
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:8000/api}
+      - VITE_FIREBASE_API_KEY=${VITE_FIREBASE_API_KEY}
+      - VITE_FIREBASE_AUTH_DOMAIN=${VITE_FIREBASE_AUTH_DOMAIN}
+      - VITE_FIREBASE_PROJECT_ID=${VITE_FIREBASE_PROJECT_ID}
+      - VITE_FIREBASE_STORAGE_BUCKET=${VITE_FIREBASE_STORAGE_BUCKET}
+      - VITE_FIREBASE_MESSAGING_SENDER_ID=${VITE_FIREBASE_MESSAGING_SENDER_ID}
+      - VITE_FIREBASE_APP_ID=${VITE_FIREBASE_APP_ID}
+      - VITE_FIREBASE_MEASUREMENT_ID=${VITE_FIREBASE_MEASUREMENT_ID}
+      - VITE_FIREBASE_VAPID_KEY=${VITE_FIREBASE_VAPID_KEY}
     restart: unless-stopped
 
   # ── Orchestrateur de workflows — N8N ─────────────────────────
@@ -132,7 +145,7 @@ services:
       - GENERIC_TIMEZONE=Europe/Paris
       - N8N_SECURE_COOKIE=false
     volumes:
-      - n8n_data:/home/node/.n8n
+      - n8n_data:/home/node/.home/node/.n8n
       - ./backend/n8n/workflows:/workflows
 
 volumes:

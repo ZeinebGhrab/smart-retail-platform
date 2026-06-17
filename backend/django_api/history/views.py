@@ -1,19 +1,26 @@
 # ============================================================
-# history/views.py — API REST : historique visiteurs / analytics
-# Source de données : data/shoppingclub_2025_2026.csv
+# history/views.py — API REST : historique visiteurs / analytics + FCM
 # ============================================================
 
 import json
+import time
 import threading
+import requests
+import base64
 from pathlib import Path
 
 from django.conf import settings
+from django.http import StreamingHttpResponse, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from django.http import StreamingHttpResponse
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.backends import default_backend
 
 from . import visitor_data as vd
+from .models import FCMToken
 
 # ── Notifications N8N : persistance fichier JSON ────────────
 _NOTIF_DIR  = Path(getattr(settings, "BACKEND_DIR", Path(__file__).resolve().parent.parent.parent)) / "data"
@@ -139,46 +146,28 @@ def latest_notification(request):
 @extend_schema(
     tags=["Notifications — N8N"],
     summary="Historique des notifications reçues de N8N",
-    description=(
-        "Retourne la liste (tableau JSON) des rapports quotidiens reçus via /api/daily-report/.\n\n"
-        "**FIX #2** : retourne directement un tableau `[...]` et non plus un objet enveloppé "
-        "`{ count, results }` — le frontend Ionic peut ainsi itérer sans déballage supplémentaire."
-    ),
 )
 @api_view(["GET"])
 def notifications_history(request):
-    # FIX #2 : retourner directement la liste, pas un dict enveloppé.
-    # Avant : Response({"count": ..., "results": [...]})  ← cassait le frontend
-    # Après : Response([...])                             ← tableau que fetchHistory() attend
     return Response(_read_notifications())
 
 
 # ── SSE stream ───────────────────────────────────────────────
 
 def sse_stream(request):
-    """
-    GET /api/prediction/stream/
-    Connexion SSE longue durée — le Dashboard React s'y abonne
-    pour recevoir les rapports quotidiens en temps réel.
-    """
     import queue
-
     q: queue.Queue = queue.Queue()
     with _sse_lock:
         _sse_clients.append(q)
 
     def event_stream():
         try:
-            # Heartbeat initial pour confirmer la connexion
             yield "event: connected\ndata: {}\n\n"
             while True:
                 try:
                     payload = q.get(timeout=30)
-                    # FIX (déjà correct) : émet "event: llm_report" — le hook
-                    # useSSEPrediction.ts doit écouter addEventListener('llm_report', ...)
                     yield f"event: llm_report\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
                 except queue.Empty:
-                    # Keepalive toutes les 30 s
                     yield ": keepalive\n\n"
         except GeneratorExit:
             pass
@@ -190,43 +179,17 @@ def sse_stream(request):
                     pass
 
     response = StreamingHttpResponse(event_stream(), content_type="text/event-stream")
-    response["Cache-Control"]    = "no-cache"
+    response["Cache-Control"]     = "no-cache"
     response["X-Accel-Buffering"] = "no"
     return response
 
 
-# ── Endpoint POST appelé par N8N ─────────────────────────────
-
 @extend_schema(
     tags=["Rapport quotidien — N8N"],
     summary="Réception du rapport quotidien depuis N8N",
-    description=(
-        "Reçoit le payload structuré généré par N8N et le diffuse immédiatement "
-        "à tous les clients SSE connectés.\n\n"
-        "Payload attendu :\n"
-        "```json\n"
-        "{\n"
-        '  "type": "llm_report",\n'
-        '  "date": "2026-06-16",\n'
-        '  "generated_at": "2026-06-16T06:00:00Z",\n'
-        '  "message": "...",\n'
-        '  "prediction": {\n'
-        '    "visiteurs_prevus": 412,\n'
-        '    "profil_dominant": "Familles",\n'
-        '    "niveau_affluence": "Élevé",\n'
-        '    "heure_pointe": "14:00 - 18:00"\n'
-        "  }\n"
-        "}\n"
-        "```"
-    ),
 )
 @api_view(["POST"])
 def daily_report(request):
-    """
-    POST /api/daily-report/
-    Appelé par le nœud N8N « Push SSE → Django ».
-    Diffuse le payload à tous les clients SSE abonnés.
-    """
     payload = request.data
     if not payload:
         return Response({"error": "Payload vide."}, status=400)
@@ -236,10 +199,8 @@ def daily_report(request):
     if missing:
         return Response({"error": f"Champs manquants : {', '.join(missing)}"}, status=400)
 
-    # Persistance fichier JSON
     _append_notification(payload)
 
-    # Broadcast à tous les clients SSE connectés
     with _sse_lock:
         active_clients = list(_sse_clients)
 
@@ -261,3 +222,112 @@ def daily_report(request):
 # ── Alias — noms attendus par history/urls.py ────────────────
 prediction_stream    = sse_stream
 receive_daily_report = daily_report
+
+
+# ============================================================
+# FCM — Firebase Cloud Messaging
+# ============================================================
+
+# Config Service Account Firebase — projet shop-analytics-anavid
+_FCM_SERVICE_ACCOUNT = {
+    "project_id":   "shop-analytics-anavid",
+    "client_email": "firebase-adminsdk-fbsvc@shop-analytics-anavid.iam.gserviceaccount.com",
+    # ⚠️  Remplacer par la vraie clé privée du projet shop-analytics-anavid
+    # Firebase Console → Project Settings → Service accounts → Generate new private key
+    "private_key":  "REPLACE_WITH_PRIVATE_KEY_FROM_FIREBASE_CONSOLE",
+}
+
+
+def _get_fcm_access_token() -> str:
+    """Génère un token OAuth2 depuis le Service Account pour FCM v1."""
+    now = int(time.time())
+
+    header = base64.urlsafe_b64encode(
+        json.dumps({"alg": "RS256", "typ": "JWT"}).encode()
+    ).rstrip(b"=").decode()
+
+    payload = base64.urlsafe_b64encode(json.dumps({
+        "iss":   _FCM_SERVICE_ACCOUNT["client_email"],
+        "scope": "https://www.googleapis.com/auth/firebase.messaging",
+        "aud":   "https://oauth2.googleapis.com/token",
+        "exp":   now + 3600,
+        "iat":   now,
+    }).encode()).rstrip(b"=").decode()
+
+    private_key = serialization.load_pem_private_key(
+        _FCM_SERVICE_ACCOUNT["private_key"].encode(),
+        password=None,
+        backend=default_backend(),
+    )
+    signature = base64.urlsafe_b64encode(
+        private_key.sign(
+            f"{header}.{payload}".encode(),
+            padding.PKCS1v15(),
+            hashes.SHA256(),
+        )
+    ).rstrip(b"=").decode()
+
+    jwt = f"{header}.{payload}.{signature}"
+
+    response = requests.post(
+        "https://oauth2.googleapis.com/token",
+        data={"grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer", "assertion": jwt},
+    )
+    return response.json()["access_token"]
+
+
+@csrf_exempt
+def save_fcm_token(request):
+    """POST /api/fcm-token/ — Sauvegarde un token FCM."""
+    if request.method != "POST":
+        return JsonResponse({"error": "POST only"}, status=405)
+    try:
+        data  = json.loads(request.body)
+        token = data.get("token")
+        if not token:
+            return JsonResponse({"error": "token manquant"}, status=400)
+        FCMToken.objects.get_or_create(token=token)
+        return JsonResponse({"status": "ok"})
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+def send_fcm(request):
+    """POST /api/send-fcm/ — Envoie une notification push via FCM v1."""
+    if request.method != "POST":
+        return JsonResponse({"error": "POST only"}, status=405)
+    try:
+        data   = json.loads(request.body)
+        tokens = list(FCMToken.objects.values_list("token", flat=True))
+        if not tokens:
+            return JsonResponse({"error": "Aucun token enregistré"}, status=404)
+
+        access_token = _get_fcm_access_token()
+        url = f"https://fcm.googleapis.com/v1/projects/{_FCM_SERVICE_ACCOUNT['project_id']}/messages:send"
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type":  "application/json",
+        }
+
+        sent, errors = 0, []
+        for token in tokens:
+            resp = requests.post(url, headers=headers, json={
+                "message": {
+                    "token": token,
+                    "notification": {
+                        "title": data.get("title", "ShopAnalytics"),
+                        "body":  data.get("body", ""),
+                    },
+                    "data":    {k: str(v) for k, v in data.get("data", {}).items()},
+                    "android": {"priority": "high", "notification": {"sound": "default"}},
+                }
+            })
+            if resp.status_code == 200:
+                sent += 1
+            else:
+                errors.append(resp.json())
+
+        return JsonResponse({"sent": sent, "errors": errors})
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)

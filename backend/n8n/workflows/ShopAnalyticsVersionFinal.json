@@ -12,26 +12,26 @@
           ]
         }
       },
-      "id": "3eb8f33c-ed3a-4991-b169-62abb58f4166",
+      "id": "88168621-eb09-4448-b60c-9465f3d69f16",
       "name": "Déclencheur 6h00",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.1,
       "position": [
-        -1328,
-        48
+        -1376,
+        112
       ]
     },
     {
       "parameters": {
         "jsCode": "await new Promise(r => setTimeout(r, 500));\nreturn [{\n  json: {\n    status: 'trained',\n    model_version: '1.0.0',\n    trained_at: new Date().toISOString(),\n    samples_used: 142\n  }\n}];"
       },
-      "id": "7035c1e9-8899-4e53-96c6-8c17cea44910",
+      "id": "ae98cbfc-7c18-4e2b-b633-276f92fa57d6",
       "name": "Réentraînement Modèle ML",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1104,
-        48
+        -1152,
+        112
       ],
       "notes": "⚠️ MOCK — Remplacer par HTTP Request POST /api/train"
     },
@@ -39,13 +39,13 @@
       "parameters": {
         "jsCode": "const profiles = ['Familles', 'Jeunes adultes', 'Seniors', 'Professionnels'];\nconst niveaux = ['Faible', 'Modéré', 'Élevé', 'Très élevé'];\nconst visiteurs = Math.floor(Math.random() * 300) + 350;\n\nreturn [{\n  json: {\n    visiteurs_prevus: visiteurs,\n    profil_dominant: profiles[Math.floor(Math.random() * profiles.length)],\n    niveau_affluence: niveaux[Math.floor(Math.random() * niveaux.length)],\n    heure_pointe_debut: '14:00',\n    heure_pointe_fin: '18:00',\n    date_prevision: new Date().toISOString().split('T')[0]\n  }\n}];"
       },
-      "id": "928e3e10-7c25-48d2-9c35-414bafbc6844",
+      "id": "50c44f81-0de6-4dd6-b8d9-0e8e68b8c334",
       "name": "Prédiction Visiteurs",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -880,
-        48
+        -928,
+        112
       ],
       "notes": "⚠️ MOCK — Remplacer par HTTP Request POST /api/predict"
     },
@@ -53,13 +53,13 @@
       "parameters": {
         "jsCode": "const data = $input.first().json;\n\nconst prompt = `Tu es l assistant analytique de ShopAnalytics pour Anavid Store 360. Voici les predictions de frequentation pour aujourd hui (${data.date_prevision}) : Visiteurs prevus : ${data.visiteurs_prevus}. Profil dominant : ${data.profil_dominant}. Niveau d affluence : ${data.niveau_affluence}. Heure de pointe : ${data.heure_pointe_debut} a ${data.heure_pointe_fin}. Redige un message professionnel et concis de 4 a 5 phrases en francais a destination de l equipe du magasin. Mentionne le nombre de visiteurs, le profil dominant, le niveau d affluence et donne 1 a 2 recommandations concretes sur la gestion du personnel ou des caisses.`;\n\nreturn [{\n  json: {\n    prompt: prompt,\n    prediction: data\n  }\n}];"
       },
-      "id": "647f81bd-3c55-43a9-bd56-0661da52ab9d",
+      "id": "8f2fe8a1-d97f-449c-b009-7a77640ff8e6",
       "name": "Préparer Prompt Ollama",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -656,
-        48
+        -704,
+        112
       ]
     },
     {
@@ -67,35 +67,35 @@
         "promptType": "define",
         "text": "={{ $('Préparer Prompt Ollama').item.json.prompt }}"
       },
-      "id": "a92b84a0-0496-4cdf-a1ad-bf7e8d749304",
+      "id": "afc9c697-93c7-457d-8454-abbc5d83ee8b",
       "name": "Basic LLM Chain",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.4,
       "position": [
-        -432,
-        48
+        -480,
+        112
       ]
     },
     {
       "parameters": {
-        "model": "llama3.2:3b-instruct-q4_K_M",
+        "model": "=llama3.2:3b-instruct-q4_K_M",
         "options": {
           "temperature": 0.1,
           "numCtx": 4096,
           "numPredict": 300
         }
       },
-      "id": "1e96a9d4-16a1-4709-bc02-923d72227e36",
+      "id": "766df22f-c47e-41f4-b860-c7f412faa31f",
       "name": "Ollama Model",
       "type": "@n8n/n8n-nodes-langchain.lmOllama",
       "typeVersion": 1,
       "position": [
-        -352,
-        272
+        -400,
+        336
       ],
       "credentials": {
         "ollamaApi": {
-          "id": "s7TKiDah316HSNMg",
+          "id": "kYIIiUR3J248E9Me",
           "name": "Ollama account"
         }
       }
@@ -104,13 +104,13 @@
       "parameters": {
         "jsCode": "// Formate le payload attendu par Django SSE (receive_daily_report)\n// et par le Dashboard.tsx (PredictionData interface)\nconst llmText = $input.first().json.text?.trim();\nconst pred = $('Préparer Prompt Ollama').first().json.prediction;\n\nconst payload = {\n  type: 'llm_report',\n  date: pred.date_prevision,\n  generated_at: new Date().toISOString(),\n  message: llmText,\n  prediction: {\n    visiteurs_prevus: pred.visiteurs_prevus,\n    profil_dominant:  pred.profil_dominant,\n    niveau_affluence: pred.niveau_affluence,\n    heure_pointe:     `${pred.heure_pointe_debut} - ${pred.heure_pointe_fin}`\n  }\n};\n\nreturn [{ json: payload }];"
       },
-      "id": "54dbc6e4-981c-417c-97a4-74d8cc030011",
+      "id": "571c8c6d-23f3-4d72-b680-878c7abf7d41",
       "name": "Formater Payload SSE",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -80,
-        48
+        -128,
+        112
       ],
       "notes": "Formate exactement le PredictionData attendu par Dashboard.tsx et Django SSE"
     },
@@ -134,13 +134,13 @@
           "timeout": 10000
         }
       },
-      "id": "f53c2394-f714-476a-a131-638a67352b50",
+      "id": "0de0e804-6ab8-4b25-903f-dbf9b314d090",
       "name": "Push SSE → Django",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        144,
-        -48
+        96,
+        -80
       ],
       "notes": "POST /api/daily-report/ → Django notifie tous les clients SSE connectés (Dashboard + ChatIA)"
     },
@@ -148,15 +148,49 @@
       "parameters": {
         "jsCode": "// Appel HTTP via $http natif de N8N (fetch et http sont bloqués)\nconst llmText = $input.first().json.text?.trim();\nconst prediction = $('Préparer Prompt Ollama').first().json.prediction;\n\nlet chatAnswer = llmText;\n\ntry {\n  const response = await $http.request({\n    method: 'POST',\n    url: 'http://django_api:8000/api/chat/',\n    headers: { 'Content-Type': 'application/json' },\n    body: {\n      question: `Rapport quotidien automatique du ${prediction.date_prevision} : ${llmText}`\n    },\n    json: true\n  });\n  chatAnswer = response.answer || llmText;\n} catch (err) {\n  console.log('Django indisponible, fallback LLM : ' + err.message);\n}\n\nconst notification = {\n  id: Date.now(),\n  date: prediction.date_prevision,\n  generated_at: new Date().toISOString(),\n  visiteurs_prevus: prediction.visiteurs_prevus,\n  profil_dominant: prediction.profil_dominant,\n  niveau_affluence: prediction.niveau_affluence,\n  heure_pointe: `${prediction.heure_pointe_debut} - ${prediction.heure_pointe_fin}`,\n  message: chatAnswer,\n  model: 'llama3.2:3b-instruct-q4_K_M',\n  type: 'daily_report'\n};\n\nreturn [{ json: notification }];"
       },
-      "id": "2981aee0-1ffd-45f6-861f-0c7a678dfd2c",
+      "id": "ce361a4b-5bac-45de-afc8-f29c50005480",
       "name": "Envoyer au Chatbot",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        144,
-        144
+        96,
+        304
       ],
       "notes": "Envoie le message LLM au RAG Django → chatbot Ionic"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://shopanalytics-django-api:8000/api/send-fcm/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "=json",
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "jsonBody": "={{\n{\n  title: \"📊 Rapport Quotidien - \" + $json.date,\n  body: $json.message,\n  data: {\n    type: $json.type,\n    date: $json.date,\n    visiteurs_prevus: $json.prediction.visiteurs_prevus,\n    profil_dominant: $json.prediction.profil_dominant,\n    niveau_affluence: $json.prediction.niveau_affluence,\n    heure_pointe: $json.prediction.heure_pointe\n  }\n}\n}}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        96,
+        112
+      ],
+      "id": "557ef28d-ace2-4a85-93e2-b6fbea53e636",
+      "name": "Envoyer FCM"
     }
   ],
   "pinData": {},
@@ -231,12 +265,17 @@
       "main": [
         [
           {
-            "node": "Push SSE → Django",
+            "node": "Envoyer au Chatbot",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Envoyer au Chatbot",
+            "node": "Envoyer FCM",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Push SSE → Django",
             "type": "main",
             "index": 0
           }
@@ -250,23 +289,24 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "b772a670-6d88-45d4-aa58-767d489ab0a3",
+  "versionId": "895ede47-59a4-4bb6-8da1-e9eb2661e30b",
   "meta": {
-    "instanceId": "7a56db4477e7d05789a52bee48fe2be857235aede8fd1499ba497f183563bf51"
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2a2218ff55d4109be46316fcd7e8237a7939caab7d75bc620f00b3c48361bc30"
   },
   "nodeGroups": [],
-  "id": "a4qqbnb3mYGRjkVE",
+  "id": "5iRpUJjxzIEmDnrE",
   "tags": [
     {
-      "updatedAt": "2026-06-13T00:20:29.913Z",
-      "createdAt": "2026-06-13T00:20:29.913Z",
-      "id": "GmxwOlJZ65WK5Xm4",
+      "updatedAt": "2026-06-13T09:24:30.553Z",
+      "createdAt": "2026-06-13T09:24:30.553Z",
+      "id": "SnfP9RYruenI89zw",
       "name": "Sprint1"
     },
     {
-      "updatedAt": "2026-06-13T00:20:29.949Z",
-      "createdAt": "2026-06-13T00:20:29.949Z",
-      "id": "KnrHsYTCj4Eaf2qP",
+      "updatedAt": "2026-06-13T09:24:30.516Z",
+      "createdAt": "2026-06-13T09:24:30.516Z",
+      "id": "nLPz9xbfSMzEvgJr",
       "name": "ShopAnalytics"
     }
   ]
