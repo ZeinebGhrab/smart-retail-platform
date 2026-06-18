@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   IonPage,
   IonContent,
@@ -26,12 +26,27 @@ import './Dashboard.css';
 import { NotificationBell } from '../components/Notifications';
 import { useHistory } from 'react-router-dom';
 import { sendToChat } from '../services/chatBridge';
+import { getHourlyFlow, HourlyFlowResponse } from '../services/api';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip);
 
-const INTRADAY_LABELS    = ['8h','9h','10h','11h','12h','13h','14h','15h','16h','17h','18h','19h','20h'];
-const INTRADAY_TODAY     = [0, 45, 120, 210, 290, 340, 390, 450, 490, 430, 360, 250, 150];
-const INTRADAY_YESTERDAY = [0, 30, 100, 180, 260, 310, 360, 420, 440, 400, 320, 210, 120];
+// Toutes les heures d'ouverture affichées sur l'axe X du graphique,
+// même si certaines n'ont aucune donnée encore (ex: heures futures de la journée en cours).
+const INTRADAY_HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+
+/** Aligne la réponse API (liste creuse {hour, count}) sur INTRADAY_HOURS, en mettant 0 pour les heures absentes. */
+function alignHourlySeries(resp: HourlyFlowResponse | null): number[] {
+  if (!resp) return INTRADAY_HOURS.map(() => 0);
+  const byHour = new Map(resp.hourly_flow.map((p) => [p.hour, p.count]));
+  return INTRADAY_HOURS.map((h) => byHour.get(h) ?? 0);
+}
+
+/** Date au format YYYY-MM-DD, décalée de `offsetDays` par rapport à `base`. */
+function shiftDate(base: string, offsetDays: number): string {
+  const d = new Date(base);
+  d.setDate(d.getDate() + offsetDays);
+  return d.toISOString().slice(0, 10);
+}
 
 const INITIAL_ALERTS: AlertItem[] = [
   { id: 1, severity: 'critical', title: 'Affluence critique — Porte Nord',  subtitle: 'Capacité dépassée de 18% · Zone A',      time: 'Il y a 3 min',       unread: true  },
@@ -99,6 +114,10 @@ const Dashboard: React.FC = () => {
   const [alerts,        setAlerts]        = useState<AlertItem[]>(INITIAL_ALERTS);
   const [toastData,     setToastData]     = useState<{ msg: string; time: string } | null>(null);
   const [prediction,    setPrediction]    = useState<PredictionData | null>(null);
+  const [hourlyToday,     setHourlyToday]     = useState<HourlyFlowResponse | null>(null);
+  const [hourlyYesterday, setHourlyYesterday] = useState<HourlyFlowResponse | null>(null);
+  const [hourlyLoading,   setHourlyLoading]   = useState(true);
+  const [hourlyError,     setHourlyError]     = useState<string | null>(null);
 
   // FIX: initialisé au nombre réel de notifications unread, pas un magic number
   const [badgeCount, setBadgeCount] = useState(
@@ -160,6 +179,37 @@ const Dashboard: React.FC = () => {
     if (ssePrediction) handleNewPrediction(ssePrediction);
   }, [ssePrediction, handleNewPrediction]);
 
+  // Charge le flux horaire réel (aujourd'hui + hier) depuis l'API Django,
+  // à la place des séries factices précédemment codées en dur.
+  useEffect(() => {
+    let cancelled = false;
+    setHourlyLoading(true);
+    setHourlyError(null);
+
+    getHourlyFlow()
+      .then((today) => {
+        if (cancelled) return;
+        setHourlyToday(today);
+        // "Hier" = la date de "today" décalée de -1 jour (et non la date système,
+        // pour rester cohérent avec la dernière date réellement présente dans le CSV).
+        return getHourlyFlow({ date: shiftDate(today.date, -1) });
+      })
+      .then((yesterday) => {
+        if (cancelled || !yesterday) return;
+        setHourlyYesterday(yesterday);
+      })
+      .catch((err) => {
+        if (!cancelled) setHourlyError(err.message || 'Erreur de chargement du flux horaire');
+      })
+      .finally(() => {
+        if (!cancelled) setHourlyLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   useEffect(() => () => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
   }, []);
@@ -178,24 +228,24 @@ const Dashboard: React.FC = () => {
     setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
   }, []);
 
-  const chartData = {
-    labels: INTRADAY_LABELS,
+  const chartData = useMemo(() => ({
+    labels: INTRADAY_HOURS.map((h) => `${h}h`),
     datasets: [
       {
         label: "Aujourd'hui",
-        data: INTRADAY_TODAY,
+        data: alignHourlySeries(hourlyToday),
         borderColor: '#2563eb',
         backgroundColor: 'rgba(37,99,235,0.08)',
         borderWidth: 2, pointRadius: 0, tension: 0.4, fill: true,
       },
       {
         label: 'Hier',
-        data: INTRADAY_YESTERDAY,
+        data: alignHourlySeries(hourlyYesterday),
         borderColor: 'rgba(21,128,61,0.6)',
         borderWidth: 1.5, pointRadius: 0, tension: 0.4, fill: false,
       },
     ],
-  };
+  }), [hourlyToday, hourlyYesterday]);
 
   const chartOptions = {
     responsive: true,
@@ -272,7 +322,13 @@ const Dashboard: React.FC = () => {
             </button>
           </div>
           <div className="db-chart-wrap">
-            <Line data={chartData} options={chartOptions} />
+            {hourlyLoading && !hourlyToday ? (
+              <div className="db-chart-status">Chargement du flux horaire…</div>
+            ) : hourlyError ? (
+              <div className="db-chart-status error">{hourlyError}</div>
+            ) : (
+              <Line data={chartData} options={chartOptions} />
+            )}
           </div>
           <div className="db-chart-legend">
             <div className="db-legend-item"><span className="db-legend-line blue" /> Aujourd'hui</div>
