@@ -96,6 +96,12 @@ services:
       - EMAIL_HOST_USER=${EMAIL_HOST_USER}
       - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
       - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
+      # ── Firebase Cloud Messaging (Service Account) ────────────
+      # À récupérer : Firebase Console → Paramètres du projet →
+      # Comptes de service → Générer une nouvelle clé privée.
+      - FCM_PROJECT_ID=${FCM_PROJECT_ID}
+      - FCM_CLIENT_EMAIL=${FCM_CLIENT_EMAIL}
+      - FCM_PRIVATE_KEY=${FCM_PRIVATE_KEY}
     restart: unless-stopped
 
   # ── Frontend Ionic React — dev (hot-reload) ──────────────────

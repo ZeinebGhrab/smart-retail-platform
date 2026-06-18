@@ -1,11 +1,23 @@
 // ============================================================
 // frontend/src/hooks/useFirebaseMessaging.ts
-// Hook pour enregistrer le token FCM et recevoir les notifications
+// Enregistre le token FCM auprès du backend (POST /api/fcm-token/)
+// et écoute les notifications reçues au premier plan.
+//
+// — Sur Android natif (build Capacitor) : utilise le plugin natif
+//   @capacitor-firebase/messaging. C'est le chemin fiable, celui
+//   qui fonctionne réellement dans la WebView de l'app installée.
+// — Dans un navigateur classique (npm run dev) : utilise le SDK
+//   web Firebase (best effort, nécessite VITE_FIREBASE_VAPID_KEY
+//   + un fichier public/firebase-messaging-sw.js — à mettre en
+//   place séparément si le test depuis un navigateur est utile).
 // ============================================================
 
 import { useEffect } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { FirebaseMessaging } from '@capacitor-firebase/messaging';
 import { initializeApp, getApps } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
+import { saveFCMToken } from '../services/fcm';
 
 const firebaseConfig = {
   apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
@@ -17,62 +29,86 @@ const firebaseConfig = {
   measurementId:     import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
-// Initialiser Firebase une seule fois (évite les doublons en HMR Vite)
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+// ------------------------------------------------------------
+// Chemin natif (Android via Capacitor) — chemin principal de l'app.
+// Nécessite frontend/android/app/google-services.json (à récupérer
+// depuis Firebase Console → Paramètres du projet → App Android).
+// ------------------------------------------------------------
+async function registerNative(): Promise<void> {
+  const { receive } = await FirebaseMessaging.requestPermissions();
+  if (receive !== 'granted') {
+    console.warn('Permission de notification refusée (natif).');
+    return;
+  }
+
+  const { token } = await FirebaseMessaging.getToken();
+  if (!token) {
+    console.warn("Impossible d'obtenir le token FCM natif.");
+    return;
+  }
+
+  console.log('FCM Token (natif) :', token);
+  await saveFCMToken(token);
+
+  // Notification reçue alors que l'app est au premier plan.
+  await FirebaseMessaging.addListener('notificationReceived', (event) => {
+    console.log('Notification FCM reçue (foreground, natif) :', event);
+  });
+}
+
+// ------------------------------------------------------------
+// Chemin web (navigateur classique) — best effort, non bloquant.
+// ------------------------------------------------------------
+async function registerWeb(): Promise<void> {
+  if (!('serviceWorker' in navigator)) {
+    console.warn('Service Workers non supportés dans ce navigateur.');
+    return;
+  }
+
+  const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+  const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+  const messaging = getMessaging(app);
+
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') {
+    console.warn('Permission de notification refusée (web).');
+    return;
+  }
+
+  const token = await getToken(messaging, {
+    vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+    serviceWorkerRegistration: registration,
+  });
+
+  if (token) {
+    console.log('FCM Token (web) :', token);
+    await saveFCMToken(token);
+  } else {
+    console.warn("Impossible d'obtenir le token FCM web. Vérifier la VAPID key.");
+  }
+
+  onMessage(messaging, (payload) => {
+    console.log('Message FCM reçu (foreground, web) :', payload);
+    if (Notification.permission === 'granted') {
+      new Notification(payload.notification?.title || 'ShopAnalytics', {
+        body: payload.notification?.body || '',
+        icon: '/favicon.png',
+        tag: 'fcm-notification',
+        data: payload.data,
+      });
+    }
+  });
+}
 
 export const useFirebaseMessaging = () => {
   useEffect(() => {
     const initializeMessaging = async () => {
       try {
-        if (!('serviceWorker' in navigator)) {
-          console.warn('Service Workers non supportés dans ce navigateur.');
-          return;
-        }
-
-        // Enregistrer le Service Worker FCM (obligatoire pour getToken)
-        const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-        console.log('Service Worker FCM enregistré:', registration.scope);
-
-        const messaging = getMessaging(app);
-
-        // Demander la permission de notification
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-          console.warn('Permission de notification refusée');
-          return;
-        }
-
-        // Obtenir le token FCM
-        const token = await getToken(messaging, {
-          vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
-          serviceWorkerRegistration: registration,
-        });
-
-        if (token) {
-          console.log('FCM Token:', token);
-          await fetch(`${import.meta.env.VITE_API_URL}/fcm-token/`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token }),
-          });
-          console.log('Token FCM enregistré sur le backend');
+        if (Capacitor.isNativePlatform()) {
+          await registerNative();
         } else {
-          console.warn("Impossible d'obtenir le token FCM. Vérifier la VAPID key et le Service Worker.");
+          await registerWeb();
         }
-
-        // Écouter les messages reçus en foreground
-        onMessage(messaging, (payload) => {
-          console.log('Message FCM reçu (foreground):', payload);
-          if (Notification.permission === 'granted') {
-            new Notification(payload.notification?.title || 'ShopAnalytics', {
-              body: payload.notification?.body || '',
-              icon: '/favicon.png',
-              tag: 'fcm-notification',
-              data: payload.data,
-            });
-          }
-        });
-
       } catch (error) {
         console.error('Erreur Firebase Messaging:', error);
       }

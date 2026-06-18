@@ -7,6 +7,7 @@ import time
 import threading
 import requests
 import base64
+import os
 from pathlib import Path
 
 from django.conf import settings
@@ -228,18 +229,36 @@ receive_daily_report = daily_report
 # FCM — Firebase Cloud Messaging
 # ============================================================
 
-# Config Service Account Firebase — projet shop-analytics-anavid
+# Config Service Account Firebase — lue depuis les variables
+# d'environnement (FCM_PROJECT_ID / FCM_CLIENT_EMAIL / FCM_PRIVATE_KEY,
+# voir docker-compose.yml + .env). On ne committe jamais de vraie clé
+# privée en dur dans le code source.
+#
+# Pour les récupérer : Firebase Console → Paramètres du projet →
+# Comptes de service → Générer une nouvelle clé privée (télécharge un
+# JSON contenant project_id, client_email et private_key).
+#
+# Le .env stocke souvent les retours à la ligne de la clé comme des
+# "\n" littéraux : on les reconvertit ici en vrais retours à la ligne.
 _FCM_SERVICE_ACCOUNT = {
-    "project_id":   "shop-analytics-anavid",
-    "client_email": "firebase-adminsdk-fbsvc@shop-analytics-anavid.iam.gserviceaccount.com",
-    # ⚠️  Remplacer par la vraie clé privée du projet shop-analytics-anavid
-    # Firebase Console → Project Settings → Service accounts → Generate new private key
-    "private_key":  "REPLACE_WITH_PRIVATE_KEY_FROM_FIREBASE_CONSOLE",
+    "project_id":   os.environ.get("FCM_PROJECT_ID", ""),
+    "client_email": os.environ.get("FCM_CLIENT_EMAIL", ""),
+    "private_key":  os.environ.get("FCM_PRIVATE_KEY", "").replace("\\n", "\n"),
 }
+
+
+class FCMConfigError(Exception):
+    """Levée quand la config FCM (service account) est absente ou invalide."""
 
 
 def _get_fcm_access_token() -> str:
     """Génère un token OAuth2 depuis le Service Account pour FCM v1."""
+    if not all(_FCM_SERVICE_ACCOUNT.values()):
+        raise FCMConfigError(
+            "Configuration FCM incomplète : définissez FCM_PROJECT_ID, "
+            "FCM_CLIENT_EMAIL et FCM_PRIVATE_KEY dans le .env."
+        )
+
     now = int(time.time())
 
     header = base64.urlsafe_b64encode(
@@ -254,11 +273,15 @@ def _get_fcm_access_token() -> str:
         "iat":   now,
     }).encode()).rstrip(b"=").decode()
 
-    private_key = serialization.load_pem_private_key(
-        _FCM_SERVICE_ACCOUNT["private_key"].encode(),
-        password=None,
-        backend=default_backend(),
-    )
+    try:
+        private_key = serialization.load_pem_private_key(
+            _FCM_SERVICE_ACCOUNT["private_key"].encode(),
+            password=None,
+            backend=default_backend(),
+        )
+    except ValueError as e:
+        raise FCMConfigError(f"FCM_PRIVATE_KEY invalide ou mal formatée : {e}") from e
+
     signature = base64.urlsafe_b64encode(
         private_key.sign(
             f"{header}.{payload}".encode(),
@@ -272,7 +295,9 @@ def _get_fcm_access_token() -> str:
     response = requests.post(
         "https://oauth2.googleapis.com/token",
         data={"grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer", "assertion": jwt},
+        timeout=10,
     )
+    response.raise_for_status()
     return response.json()["access_token"]
 
 
