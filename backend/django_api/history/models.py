@@ -22,29 +22,7 @@ class FCMToken(models.Model):
         verbose_name_plural = "FCM Tokens"
 
 
-class NotificationLog(models.Model):
-    """
-    Historique de toutes les notifications push envoyées via FCM.
-    Chaque entrée correspond à un appel POST /api/send-fcm/.
-    """
-    title        = models.CharField(max_length=255)
-    body         = models.TextField()
-    data         = models.JSONField(default=dict, blank=True)
-    sent_at      = models.DateTimeField(auto_now_add=True)
-    sent_count   = models.IntegerField(default=0)   # nombre d'appareils atteints
-    error_count  = models.IntegerField(default=0)   # nombre d'erreurs FCM
-    errors       = models.JSONField(default=list, blank=True)
-
-    def __str__(self):
-        return f"[{self.sent_at:%Y-%m-%d %H:%M}] {self.title} — {self.sent_count} envoyé(s)"
-
-    class Meta:
-        ordering = ['-sent_at']
-        verbose_name = "Notification Log"
-        verbose_name_plural = "Notification Logs"
-
-
-# ← NOUVEAU: Modèle pour les notifications N8N (prédictions)
+# Modèle pour les notifications N8N (prédictions)
 class Notification(models.Model):
     """
     Historique des notifications de prédictions reçues de N8N.

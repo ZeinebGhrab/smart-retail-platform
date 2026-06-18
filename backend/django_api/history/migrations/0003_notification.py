@@ -9,7 +9,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('history', '0002_notificationlog'),
+    ('history', '0001_initial'),
     ]
 
     operations = [

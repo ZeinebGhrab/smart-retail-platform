@@ -28,9 +28,6 @@ urlpatterns = [
     path("fcm-token/",                 views.save_fcm_token,      name="save-fcm-token"),
     path("send-fcm/",                  views.send_fcm,            name="send-fcm"),
 
-    # ── Historique des notifications FCM ─────────────────────
-    path("notification-logs/",         views.notification_logs,   name="notification-logs"),
-
     # ── Chat RAG ─────────────────────────────────────────────
     path("chat/",                      chat,                      name="chat-rag"),
 ]
