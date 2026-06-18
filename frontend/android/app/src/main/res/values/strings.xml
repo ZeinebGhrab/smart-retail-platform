@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">anavidApp</string>
+    <string name="title_activity_main">anavidApp</string>
+    <string name="package_name">com.anavid.shopanalytics</string>
+    <string name="custom_url_scheme">com.anavid.shopanalytics</string>
+</resources>
