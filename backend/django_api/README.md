@@ -149,7 +149,7 @@ Ce fichier contient également le **canal de notifications N8N** :
 
 Ainsi que le **canal de notifications push FCM** :
 - `save_fcm_token` (`POST /api/fcm-token/`) — enregistre un token d'appareil dans le modèle `FCMToken` (`get_or_create`, pas de doublon).
-- `send_fcm` (`POST /api/send-fcm/`) — génère un token OAuth2 via `_get_fcm_access_token()` (JWT signé avec `FCM_PRIVATE_KEY`), envoie une notification à chaque token enregistré via l'API FCM v1, puis journalise le résultat dans `NotificationLog`. Lève une `FCMConfigError` si `FCM_PROJECT_ID` / `FCM_CLIENT_EMAIL` / `FCM_PRIVATE_KEY` sont absents ou invalides.
+- `send_fcm` (`POST /api/send-fcm/`) — génère un token OAuth2 via `_get_fcm_access_token()` (JWT signé avec `FCM_PRIVATE_KEY`), envoie une notification à chaque token enregistré via l'API FCM v1 et retourne directement le résultat (`sent`, `errors`). Aucune persistance en base pour les logs d'envoi FCM. Lève une `FCMConfigError` si `FCM_PROJECT_ID` / `FCM_CLIENT_EMAIL` / `FCM_PRIVATE_KEY` sont absents ou invalides.
 
 Procédure complète de configuration FCM (Service Account, clés frontend, `google-services.json`) : [`frontend/README_APK_Android.md` section 4](../../frontend/README_APK_Android.md#4-configuration-fcm-firebase-cloud-messaging).
 

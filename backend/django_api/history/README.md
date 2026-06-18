@@ -12,9 +12,20 @@ Application Django principale : expose les endpoints analytiques sur les donnée
 | `visitor_data.py` | Lecture/cache du CSV visiteurs + fonctions de calcul analytique |
 | `rag_pipeline.py` | Pipeline RAG (retrieval CSV + KB, appel Ollama) |
 | `chat_view.py` | Endpoint `POST /api/chat/`, orchestre `rag_pipeline.py` |
-| `models.py` | `FCMToken`, `NotificationLog`, `Notification` |
+| `models.py` | `FCMToken`, `Notification` |
 | `urls.py` | Routage de tous les endpoints `history/`, `notifications/`, `prediction/`, `daily-report/`, `chat/` et FCM (`fcm-token/`, `send-fcm/`) |
 | `apps.py` | Configuration de l'app (`AppConfig`) |
+
+---
+
+## Modèles en base
+
+| Modèle | Table PostgreSQL | Description |
+|---|---|---|
+| `FCMToken` | `history_fcmtoken` | Tokens FCM des appareils clients pour les notifications push |
+| `Notification` | `history_notification` | Notifications de prédictions reçues de N8N (rapports quotidiens) |
+
+> **Note :** Le modèle `NotificationLog` a été supprimé — il n'était jamais alimenté dans le code (`send_fcm` ne créait aucune entrée). La table `history_notificationlog` a été retirée de la base de données.
 
 ---
 
@@ -46,16 +57,19 @@ Paramètres communs (query string) : `date` (`YYYY-MM-DD`), `start_date` / `end_
 | Méthode | URL | Vue | Description |
 |---|---|---|---|
 | `GET` | `notifications/latest/` | `latest_notification` | Dernière notification reçue |
-| `GET` | `notifications/history/` | `notifications_history` | Historique complet (jusqu'à 100 entrées), tableau JSON brut |
+| `GET` | `notifications/history/` | `notifications_history` | Historique complet trié par date décroissante |
+| `GET` | `notifications/unread-count/` | `unread_notifications_count` | Nombre de notifications non lues |
+| `POST` | `notifications/<id>/mark-read/` | `mark_notification_read` | Marque une notification comme lue |
+| `POST` | `notifications/mark-all-read/` | `mark_all_notifications_read` | Marque toutes les notifications comme lues |
 | `GET` | `prediction/stream/` | `sse_stream` (alias `prediction_stream`) | Connexion SSE longue durée |
-| `POST` | `daily-report/` | `daily_report` | Reçoit le payload prédictif depuis N8N et le diffuse en SSE |
+| `POST` | `daily-report/` | `daily_report` | Reçoit le payload prédictif depuis N8N, le persiste en BD et le diffuse en SSE |
 
 ### Notifications push (FCM)
 
 | Méthode | URL | Vue | Description |
 |---|---|---|---|
 | `POST` | `fcm-token/` | `save_fcm_token` | Enregistre le token FCM d'un appareil (`FCMToken.objects.get_or_create`) |
-| `POST` | `send-fcm/` | `send_fcm` | Envoie une notification push à tous les tokens enregistrés via l'API FCM v1, journalise le résultat dans `NotificationLog` |
+| `POST` | `send-fcm/` | `send_fcm` | Envoie une notification push à tous les tokens enregistrés via l'API FCM v1 |
 
 Configuration complète (Service Account Firebase, variables `FCM_PROJECT_ID` / `FCM_CLIENT_EMAIL` / `FCM_PRIVATE_KEY`) : voir [`frontend/README_APK_Android.md` section 4](../../../frontend/README_APK_Android.md#4-configuration-fcm-firebase-cloud-messaging).
 
@@ -77,7 +91,7 @@ POST /api/send-fcm/ ──► send_fcm
       ▼
 POST https://fcm.googleapis.com/v1/projects/{FCM_PROJECT_ID}/messages:send  (un appel par token)
       ▼
-NotificationLog créé (title, body, sent_count, error_count, errors)
+{ "sent": N, "errors": [...] }   — réponse directe, aucune persistance en base
 ```
 
 Si aucun token n'est enregistré, `send_fcm` renvoie `{"sent": 0, "errors": [], "info": "..."}` sans erreur (HTTP 200). Si la configuration FCM (`FCM_PROJECT_ID` / `FCM_CLIENT_EMAIL` / `FCM_PRIVATE_KEY`) est incomplète ou invalide, une `FCMConfigError` est levée avec un message explicite.
@@ -87,11 +101,11 @@ Si aucun token n'est enregistré, `send_fcm` renvoie `{"sent": 0, "errors": [], 
 ## Flux de notifications temps réel
 
 ```
-N8N (cron 6h00) ──POST──► /api/daily-report/ ──┬──► persistance JSON (history/notifications.json, 100 derniers)
+N8N (cron 6h00) ──POST──► /api/daily-report/ ──┬──► persistance PostgreSQL (Notification)
                                                  └──► broadcast SSE ──► tous les clients connectés à /api/prediction/stream/
 ```
 
-- `daily_report` valide la présence des champs requis (`type`, `date`, `message`, `prediction`), persiste le payload via `_append_notification()`, puis le diffuse immédiatement (`queue.put_nowait`) à tous les clients SSE actifs (`_sse_clients`).
+- `daily_report` valide la présence des champs requis (`type`, `date`, `message`, `prediction`), crée une entrée `Notification` en base (`is_read=False`), puis diffuse immédiatement (`queue.put_nowait`) à tous les clients SSE actifs (`_sse_clients`).
 - `sse_stream` ouvre une `StreamingHttpResponse` (`text/event-stream`) : émet un événement `connected` à l'ouverture, puis un événement nommé **`llm_report`** à chaque nouveau payload, avec un keepalive toutes les 30 secondes en l'absence d'activité.
 - Le frontend (`hooks/useSSEPrediction.ts`) écoute spécifiquement l'événement `llm_report` (et non l'événement par défaut `message`).
 
