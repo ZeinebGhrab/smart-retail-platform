@@ -17,12 +17,16 @@ urlpatterns = [
 
     # ── Notifications N8N ────────────────────────────────────
     path("notifications/latest/",      views.latest_notification),
+    path("notifications/history/",     views.notifications_history,  name="notifications-history"),  
     path("prediction/stream/",         views.prediction_stream),
     path("daily-report/",              views.receive_daily_report),
 
     # ── FCM (Firebase Cloud Messaging) ───────────────────────
     path("fcm-token/",                 views.save_fcm_token,      name="save-fcm-token"),
     path("send-fcm/",                  views.send_fcm,            name="send-fcm"),
+
+    # ── Historique des notifications FCM ─────────────────────
+    path("notification-logs/",         views.notification_logs,   name="notification-logs"),
 
     # ── Chat RAG ─────────────────────────────────────────────
     path("chat/",                      chat,                      name="chat-rag"),

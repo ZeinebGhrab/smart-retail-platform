@@ -103,6 +103,11 @@ services:
       - FCM_CLIENT_EMAIL=${FCM_CLIENT_EMAIL}
       - FCM_PRIVATE_KEY=${FCM_PRIVATE_KEY}
     restart: unless-stopped
+    networks:
+      default:
+        aliases:
+          - shopanalytics-django-api   # accepte l'ancien hostname n8n
+
 
   # ── Frontend Ionic React — dev (hot-reload) ──────────────────
   frontend:

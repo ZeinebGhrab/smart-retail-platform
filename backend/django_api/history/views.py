@@ -21,7 +21,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.backends import default_backend
 
 from . import visitor_data as vd
-from .models import FCMToken
+from .models import FCMToken, NotificationLog
 
 # ── Notifications N8N : persistance fichier JSON ────────────
 _NOTIF_DIR  = Path(getattr(settings, "BACKEND_DIR", Path(__file__).resolve().parent.parent.parent)) / "data"
@@ -356,3 +356,34 @@ def send_fcm(request):
         return JsonResponse({"sent": sent, "errors": errors})
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+@csrf_exempt
+def notification_logs(request):
+    """
+    Retourne l'historique des notifications envoyées.
+    GET /api/notification-logs/
+    Query params optionnels :
+        ?limit=20   — nombre max de résultats (défaut 20)
+    """
+    if request.method != 'GET':
+        return JsonResponse({'error': 'GET only'}, status=405)
+
+    limit = int(request.GET.get('limit', 20))
+    logs  = NotificationLog.objects.all()[:limit]
+
+    return JsonResponse({
+        'count': NotificationLog.objects.count(),
+        'results': [
+            {
+                'id':          log.id,
+                'title':       log.title,
+                'body':        log.body,
+                'data':        log.data,
+                'sent_at':     log.sent_at.isoformat(),
+                'sent_count':  log.sent_count,
+                'error_count': log.error_count,
+                'errors':      log.errors,
+            }
+            for log in logs
+        ]
+    })
