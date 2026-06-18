@@ -56,7 +56,7 @@ class Notification(models.Model):
     visiteurs_prevus   = models.IntegerField(default=0)
     profil_dominant    = models.CharField(max_length=255, default='')
     niveau_affluence   = models.CharField(max_length=100, default='')
-    heure_pointe       = models.CharField(max_length=10, default='')
+    heure_pointe       = models.CharField(max_length=50, default='')
     model              = models.CharField(max_length=255, default='llama3.2:3b-instruct-q4_K_M')
     type               = models.CharField(max_length=50, default='prediction')
     # champ pour marquer comme lue

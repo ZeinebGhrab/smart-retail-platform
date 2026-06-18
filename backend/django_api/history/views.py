@@ -404,7 +404,7 @@ def send_fcm(request):
         data   = json.loads(request.body)
         tokens = list(FCMToken.objects.values_list("token", flat=True))
         if not tokens:
-            return JsonResponse({"error": "Aucun token enregistré"}, status=404)
+            return JsonResponse({"sent": 0, "errors": [], "info": "Aucun token FCM enregistré — notification ignorée."}, status=200)
 
         access_token = _get_fcm_access_token()
         url = f"https://fcm.googleapis.com/v1/projects/{_FCM_SERVICE_ACCOUNT['project_id']}/messages:send"
