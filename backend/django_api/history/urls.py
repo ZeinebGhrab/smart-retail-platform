@@ -15,13 +15,14 @@ urlpatterns = [
     path("history/summary/",           views.summary,             name="history-summary"),
     path("history/cameras/",           views.cameras,             name="history-cameras"),
 
-    # ── Notifications N8N ────────────────────────────────────
-    path("notifications/latest/",      views.latest_notification),
-    path("notifications/history/",     views.notifications_history,  name="notifications-history"),  
-    # endpoint pour marquer une notification comme lue
+    # ── Notifications N8N (PostgreSQL BD) ────────────────────
+    path("notifications/latest/",           views.latest_notification,        name="notifications-latest"),
+    path("notifications/history/",          views.notifications_history,      name="notifications-history"),
+    path("notifications/unread-count/",     views.unread_notifications_count, name="notifications-unread-count"),
     path("notifications/<int:notification_id>/mark-read/", views.mark_notification_read, name="mark-notification-read"),
-    path("prediction/stream/",         views.prediction_stream),
-    path("daily-report/",              views.receive_daily_report),
+    path("notifications/mark-all-read/",    views.mark_all_notifications_read, name="mark-all-notifications-read"),
+    path("prediction/stream/",              views.prediction_stream,          name="prediction-stream"),
+    path("daily-report/",                   views.receive_daily_report,       name="receive-daily-report"),
 
     # ── FCM (Firebase Cloud Messaging) ───────────────────────
     path("fcm-token/",                 views.save_fcm_token,      name="save-fcm-token"),

@@ -9,6 +9,7 @@ import requests
 import base64
 import os
 from pathlib import Path
+from datetime import datetime
 
 from django.conf import settings
 from django.http import StreamingHttpResponse, JsonResponse
@@ -16,14 +17,16 @@ from django.views.decorators.csrf import csrf_exempt
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from rest_framework import status
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.backends import default_backend
 
 from . import visitor_data as vd
-from .models import FCMToken, NotificationLog
+from .models import FCMToken, NotificationLog, Notification
+from .serializers import NotificationSerializer
 
-# ── Notifications N8N : persistance fichier JSON ────────────
+# ── Notifications N8N : persistance fichier JSON (ancienne méthode) ────────────
 _NOTIF_DIR  = Path(getattr(settings, "BACKEND_DIR", Path(__file__).resolve().parent.parent.parent)) / "data"
 _NOTIF_FILE = _NOTIF_DIR / "notifications.json"
 
@@ -110,36 +113,7 @@ def cameras(request):
     return Response({"cameras": vd.list_cameras()})
 
 
-# ── Notifications N8N — lecture / écriture fichier JSON ─────
-
-def _read_notifications() -> list:
-    """Lit les notifications depuis le fichier JSON."""
-    if not _NOTIF_FILE.exists():
-        return []
-    try:
-        with open(_NOTIF_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            return data if isinstance(data, list) else []
-    except (json.JSONDecodeError, OSError):
-        return []
-
-
-def _write_notifications(data: list) -> None:
-    """Écrit les notifications dans le fichier JSON."""
-    _NOTIF_DIR.mkdir(parents=True, exist_ok=True)
-    with open(_NOTIF_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-
-
-def _append_notification(payload: dict) -> None:
-    """Ajoute une nouvelle notification."""
-    history = _read_notifications()
-    # ← NOUVEAU: ajouter le champ is_read=False pour les nouvelles notifications
-    payload.setdefault('is_read', False)
-    history.append(payload)
-    history = history[-100:]
-    _write_notifications(history)
-
+# ── Notifications N8N — utilisation de la BD PostgreSQL ──────────────
 
 @extend_schema(
     tags=["Notifications — N8N"],
@@ -147,26 +121,31 @@ def _append_notification(payload: dict) -> None:
 )
 @api_view(["GET"])
 def latest_notification(request):
-    history = _read_notifications()
-    if not history:
-        return Response({"message": "Aucune notification reçue pour le moment."}, status=200)
-    return Response(history[-1])
+    """Retourne la dernière notification créée"""
+    try:
+        notif = Notification.objects.latest('generated_at')
+        serializer = NotificationSerializer(notif)
+        return Response(serializer.data)
+    except Notification.DoesNotExist:
+        return Response({"message": "Aucune notification reçue pour le moment."}, status=status.HTTP_200_OK)
 
 
 @extend_schema(
     tags=["Notifications — N8N"],
-    summary="Historique des notifications reçues de N8N",
+    summary="Historique des notifications reçues de N8N (du plus récent au plus ancien)",
 )
 @api_view(["GET"])
 def notifications_history(request):
-    # ← MODIFIÉ: ajouter le champ is_read par défaut
-    notifications = _read_notifications()
-    for notif in notifications:
-        notif.setdefault('is_read', False)
-    return Response(notifications)
+    """
+    Retourne toutes les notifications, triées du plus récent au plus ancien.
+    Les notifications non lues apparaissent en premier.
+    """
+    # Récupérer toutes les notifications, triées par date décroissante
+    notifications = Notification.objects.all().order_by('-generated_at')
+    serializer = NotificationSerializer(notifications, many=True)
+    return Response(serializer.data)
 
 
-# ← NOUVEAU: endpoint pour marquer une notification comme lue
 @extend_schema(
     tags=["Notifications — N8N"],
     summary="Marquer une notification comme lue",
@@ -177,26 +156,53 @@ def mark_notification_read(request, notification_id):
     POST /api/notifications/{notification_id}/mark-read/
     Marque la notification avec l'ID spécifié comme lue.
     """
-    history = _read_notifications()
-    
-    # Chercher la notification par ID
-    notification_found = False
-    for notif in history:
-        if notif.get('id') == int(notification_id):
-            notif['is_read'] = True
-            notification_found = True
-            break
-    
-    if not notification_found:
+    try:
+        notification = Notification.objects.get(id=notification_id)
+        notification.is_read = True
+        notification.save()
+        serializer = NotificationSerializer(notification)
+        return Response({
+            "status": "ok",
+            "message": "Notification marquée comme lue",
+            "notification": serializer.data
+        })
+    except Notification.DoesNotExist:
         return Response(
             {"error": f"Notification avec l'ID {notification_id} non trouvée"},
-            status=404
+            status=status.HTTP_404_NOT_FOUND
         )
-    
-    # Sauvegarder les modifications
-    _write_notifications(history)
-    
-    return Response({"status": "ok", "message": "Notification marquée comme lue"})
+
+
+@extend_schema(
+    tags=["Notifications — N8N"],
+    summary="Marquer toutes les notifications non lues comme lues",
+)
+@api_view(["POST"])
+def mark_all_notifications_read(request):
+    """
+    POST /api/notifications/mark-all-read/
+    Marque toutes les notifications non lues comme lues.
+    """
+    count = Notification.objects.filter(is_read=False).update(is_read=True)
+    return Response({
+        "status": "ok",
+        "message": f"{count} notification(s) marquée(s) comme lue(s)",
+        "count": count
+    })
+
+
+@extend_schema(
+    tags=["Notifications — N8N"],
+    summary="Compter les notifications non lues",
+)
+@api_view(["GET"])
+def unread_notifications_count(request):
+    """
+    GET /api/notifications/unread-count/
+    Retourne le nombre de notifications non lues.
+    """
+    count = Notification.objects.filter(is_read=False).count()
+    return Response({"unread_count": count})
 
 
 # ── SSE stream ───────────────────────────────────────────────
@@ -237,33 +243,59 @@ def sse_stream(request):
 )
 @api_view(["POST"])
 def daily_report(request):
+    """
+    Reçoit un rapport quotidien de N8N et le sauvegarde en BD.
+    """
     payload = request.data
     if not payload:
-        return Response({"error": "Payload vide."}, status=400)
+        return Response({"error": "Payload vide."}, status=status.HTTP_400_BAD_REQUEST)
 
     required_fields = {"type", "date", "message", "prediction"}
     missing = required_fields - set(payload.keys())
     if missing:
-        return Response({"error": f"Champs manquants : {', '.join(missing)}"}, status=400)
+        return Response(
+            {"error": f"Champs manquants : {', '.join(missing)}"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
-    _append_notification(payload)
+    try:
+        # Créer la notification en BD
+        notification = Notification.objects.create(
+            date=payload.get('date'),
+            message=payload.get('message'),
+            visiteurs_prevus=payload.get('prediction', {}).get('visiteurs_prevus', 0),
+            profil_dominant=payload.get('prediction', {}).get('profil_dominant', ''),
+            niveau_affluence=payload.get('prediction', {}).get('niveau_affluence', ''),
+            heure_pointe=payload.get('prediction', {}).get('heure_pointe', ''),
+            model=payload.get('model', 'llama3.2:3b-instruct-q4_K_M'),
+            type=payload.get('type', 'prediction'),
+            is_read=False,
+        )
 
-    with _sse_lock:
-        active_clients = list(_sse_clients)
+        # Broadcast via SSE
+        with _sse_lock:
+            active_clients = list(_sse_clients)
 
-    delivered = 0
-    for q in active_clients:
-        try:
-            q.put_nowait(payload)
-            delivered += 1
-        except Exception:
-            pass
+        delivered = 0
+        for q in active_clients:
+            try:
+                q.put_nowait(payload)
+                delivered += 1
+            except Exception:
+                pass
 
-    return Response({
-        "status": "broadcasted",
-        "clients_notified": delivered,
-        "date": payload.get("date"),
-    })
+        serializer = NotificationSerializer(notification)
+        return Response({
+            "status": "ok",
+            "clients_notified": delivered,
+            "date": payload.get("date"),
+            "notification": serializer.data,
+        })
+    except Exception as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 # ── Alias — noms attendus par history/urls.py ────────────────

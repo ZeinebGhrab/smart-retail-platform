@@ -1,5 +1,5 @@
 # ============================================================
-# models.py — Modèles FCMToken + NotificationLog
+# models.py — Modèles FCMToken + NotificationLog + Notification
 # backend/django_api/history/models.py
 # ============================================================
 
@@ -42,3 +42,30 @@ class NotificationLog(models.Model):
         ordering = ['-sent_at']
         verbose_name = "Notification Log"
         verbose_name_plural = "Notification Logs"
+
+
+# ← NOUVEAU: Modèle pour les notifications N8N (prédictions)
+class Notification(models.Model):
+    """
+    Historique des notifications de prédictions reçues de N8N.
+    Stocke les prédictions d'affluence et autres rapports IA.
+    """
+    date               = models.DateField()
+    generated_at       = models.DateTimeField(auto_now_add=True)
+    message            = models.TextField()  # Le message texte de la prédiction
+    visiteurs_prevus   = models.IntegerField(default=0)
+    profil_dominant    = models.CharField(max_length=255, default='')
+    niveau_affluence   = models.CharField(max_length=100, default='')
+    heure_pointe       = models.CharField(max_length=10, default='')
+    model              = models.CharField(max_length=255, default='llama3.2:3b-instruct-q4_K_M')
+    type               = models.CharField(max_length=50, default='prediction')
+    # champ pour marquer comme lue
+    is_read            = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"[{self.date}] Prédiction - {self.niveau_affluence}"
+
+    class Meta:
+        ordering = ['-generated_at']  # Plus récent en premier
+        verbose_name = "Notification de prédiction"
+        verbose_name_plural = "Notifications de prédictions"

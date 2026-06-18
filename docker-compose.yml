@@ -4,6 +4,7 @@
 # Structure :
 #   frontend/   → App Ionic React (Vite)
 #   backend/    → API Django REST + RAG Ollama
+#   postgres/   → Base de données PostgreSQL
 #
 # Commandes rapides :
 #   docker compose up frontend          → front seul (dev)
@@ -13,6 +14,25 @@
 # ============================================================
 
 services:
+
+  # ── Database PostgreSQL ──────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: shopanalytics-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=shopanalytics
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # ── LLM local ───────────────────────────────────────────────
   ollama:
@@ -74,6 +94,8 @@ services:
       dockerfile: django_api/Dockerfile
     container_name: shopanalytics-django-api
     depends_on:
+      postgres:
+        condition: service_healthy
       ollama:
         condition: service_healthy
     ports:
@@ -86,6 +108,12 @@ services:
       - ./backend/results:/app/results
     environment:
       - DJANGO_DEBUG=true
+      - DB_ENGINE=postgresql
+      - DB_NAME=shopanalytics
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_HOST=postgres
+      - DB_PORT=5432
       - VISITOR_DATA_CSV=/app/data/shoppingclub_2025_2026.csv
       - OLLAMA_HOST=http://ollama:11434
       - OLLAMA_MODEL=llama3.2:3b-instruct-q4_K_M
@@ -142,6 +170,8 @@ services:
     container_name: shopanalytics-n8n
     restart: unless-stopped
     depends_on:
+      postgres:
+        condition: service_healthy
       ollama:
         condition: service_healthy
       django_api:
@@ -160,6 +190,8 @@ services:
       - ./backend/n8n/workflows:/workflows
 
 volumes:
+  postgres_data:
+    name: shopanalytics_postgres_data
   ollama_models:
     name: shopanalytics_ollama_models
   frontend_node_modules:

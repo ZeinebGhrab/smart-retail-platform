@@ -1,31 +1,21 @@
 # ============================================================
-# Backend — Agent RAG Python (Ollama + ChromaDB)
+# django_api/Dockerfile — image avec support PostgreSQL
 # ============================================================
 FROM python:3.11-slim
 
-WORKDIR /workspace
+WORKDIR /app
 
-# Dépendances système minimales pour sentence-transformers et chromadb
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    curl \
+# Installer les dépendances système pour PostgreSQL
+RUN apt-get update && apt-get install -y \
+    postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-# Installation des dépendances Python (couche cachée séparément)
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Installer les dépendances Python
+COPY django_api/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir psycopg2-binary
 
-# Copie du code source
-COPY app/ ./app/
-COPY scripts/ ./scripts/
-COPY dataset/ ./dataset/
+COPY django_api/ .
 
-# Les dossiers data/ vector_db/ results/ sont montés via volumes
-# (données persistées hors image)
-
-ENV PYTHONUNBUFFERED=1
-ENV OLLAMA_HOST=http://ollama:11434
-
-WORKDIR /workspace/app
-
-CMD ["python", "visitor_agent.py"]
+EXPOSE 8000
+CMD ["sh", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]
