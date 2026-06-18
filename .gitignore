@@ -52,3 +52,7 @@ desktop.ini
 *.swp
 *.swo
 
+# ── Firebase ─────────────────────────────────────────────────────
+frontend/android/app/google-services.json
+frontend/android/app/google-services-debug.json
+

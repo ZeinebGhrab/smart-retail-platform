@@ -50,9 +50,18 @@ async function registerNative(): Promise<void> {
   console.log('FCM Token (natif) :', token);
   await saveFCMToken(token);
 
-  // Notification reçue alors que l'app est au premier plan.
+  // Notification reçue quand l'app est au PREMIER PLAN
   await FirebaseMessaging.addListener('notificationReceived', (event) => {
     console.log('Notification FCM reçue (foreground, natif) :', event);
+  });
+
+  // Notification tappée depuis l'ARRIÈRE-PLAN ou app killed
+  await FirebaseMessaging.addListener('notificationActionPerformed', (event) => {
+    console.log('Notification tappée (background/killed) :', event);
+    // Optionnel : navigation selon le type de notif
+    // const action = event.notification.data?.action;
+    // if (action === 'view_report') { /* navigate('/dashboard') */ }
+    // if (action === 'view_forecast') { /* navigate('/predictions') */ }
   });
 }
 
