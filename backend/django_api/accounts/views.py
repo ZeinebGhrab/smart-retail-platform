@@ -167,7 +167,10 @@ def password_reset_request(request):
     try:
         user = User.objects.get(email__iexact=email)
     except User.DoesNotExist:
-        return Response(generic_response)
+        return Response(
+            {"detail": "Aucun compte n'est associé à cette adresse e-mail."},
+            status=404,
+        )
 
     # Invalider les anciens tokens non utilisés pour cet utilisateur
     PasswordResetToken.objects.filter(user=user, used=False).update(used=True)

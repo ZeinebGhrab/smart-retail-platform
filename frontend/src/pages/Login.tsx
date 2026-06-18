@@ -137,10 +137,14 @@ const Login: React.FC = () => {
     setFpErr('');
     setFpLoading(true);
     try {
-      const res = await requestPasswordReset(fpEmail);
+      await requestPasswordReset(fpEmail);
       setForgotStep('otp');
     } catch (err) {
-      setFpErr(err instanceof AuthApiError ? err.message : 'Une erreur est survenue.');
+      if (err instanceof AuthApiError && err.status === 404) {
+        setFpFieldErrs({ email: "Aucun compte n'est associé à cette adresse e-mail." });
+      } else {
+        setFpErr(err instanceof AuthApiError ? err.message : 'Une erreur est survenue.');
+      }
     } finally {
       setFpLoading(false);
     }
