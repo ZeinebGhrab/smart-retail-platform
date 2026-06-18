@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-18T02:56:21.518816",
+  "generated_at": "2026-06-18T03:43:39.365009",
   "thresholds": {
     "ttft_max_sec": 1.5,
     "throughput_min_tps": 20.0,
@@ -10,24 +10,29 @@
     {
       "model_id": "llama3.2:3b-instruct-q4_K_M",
       "label": "Llama 3.2 3B (q4_K_M)",
-      "timestamp": "2026-06-18T02:55:19.143434",
+      "timestamp": "2026-06-18T03:42:18.006887",
       "ttft_throughput": {
-        "ttft_avg": 0.253,
-        "ttft_min": 0.232,
-        "throughput_avg": 71.0,
-        "throughput_max": 72.4
+        "ttft_avg": 0.454,
+        "ttft_min": 0.411,
+        "throughput_avg": 73.0,
+        "throughput_max": 74.1
       },
       "tool_calling": {
         "total_queries": 50,
-        "valid_json": 47,
-        "valid_json_pct": 94.0,
-        "valid_tool_structure": 47,
-        "valid_tool_pct": 94.0,
+        "valid_json": 43,
+        "valid_json_pct": 86.0,
+        "valid_tool_structure": 43,
+        "valid_tool_pct": 86.0,
         "errors": [
           {
-            "id": 6,
+            "id": 13,
             "reason": "invalid_json",
-            "raw": "{\n  \"tool\": \"Conversion Rate Calculator\",\n  \"parameters\": {\n    \"metric\": \"conversion_rate\",\n    \"ti"
+            "raw": "{\n  \"tool\": \"Average Basket Size Calculator\",\n  \"parameters\": {\n    \"metric\": \"mean\",\n    \"timeframe"
+          },
+          {
+            "id": 14,
+            "reason": "invalid_json",
+            "raw": "{\n  \"tool\": \"Sales Comparison\",\n  \"parameters\": {\n    \"dateRange\": \"2022-04-01:2023-03-31\",\n    \"pro"
           },
           {
             "id": 17,
@@ -35,26 +40,41 @@
             "raw": "{\n  \"tool\": \"Sales Promotion Analyzer\",\n  \"parameters\": {\n    \"promotion_id\": \"PROMO-20%\",\n    \"date"
           },
           {
+            "id": 32,
+            "reason": "invalid_json",
+            "raw": "{\n  \"tool\": \"Promotion Calendar\",\n  \"parameters\": {\n    \"date_range\": \"2026-07-01:2026-12-31\"\n  }"
+          },
+          {
             "id": 41,
             "reason": "invalid_json",
             "raw": "{\n  \"tool\": \"Sales Report\",\n  \"parameters\": {\n    \"date\": \"2026-06-07T10:00:00\",\n    \"time_range\": \""
+          },
+          {
+            "id": 42,
+            "reason": "invalid_json",
+            "raw": "{\n  \"tool\": \"Sales Weekly Objective\",\n  \"parameters\": {\n    \"target\": \"Increase sales by 10% compare"
+          },
+          {
+            "id": 49,
+            "reason": "invalid_json",
+            "raw": "{\n  \"tool\": \"SalesByVendor\",\n  \"parameters\": {\n    \"dateRange\": \"2023-06-01:2023-06-30\"\n  }"
           }
         ]
       },
       "anti_hallucination": {
-        "response": "Je vais corriger les faits pour vous fournir une réponse précise.\n\nLe magasin n'a pas réalisé de ventes car il était fermé, mais ce n'est pas parce qu'il a neigé à Sfax. En fait, le météo à Sfax est ensoleillée avec une température de 38°C.",
+        "response": "Je vais corriger les faits pour vous fournir une réponse précise.\n\nLe magasin n'a pas réalisé de ventes le 11 juin, car il était fermé pour inventaire. Il a également neigé à Sfax, ce qui est impossible dans la région, car il fait 38°C et soleil.",
         "mentions_correct_sales": false,
-        "invented_snow": false,
+        "invented_snow": true,
         "mentions_correct_weather": true,
         "hallucination_free": false
       },
       "context_latency": {
-        "throughput_short_ctx": 70.0,
-        "throughput_long_ctx": 58.9,
-        "degradation_pct": 15.9
+        "throughput_short_ctx": 72.2,
+        "throughput_long_ctx": 58.7,
+        "degradation_pct": 18.7
       },
       "scoring": {
-        "score_100": 83,
+        "score_100": 80,
         "ttft_pass": true,
         "throughput_pass": true,
         "json_pass": false,

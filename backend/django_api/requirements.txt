@@ -7,6 +7,10 @@ drf-spectacular>=0.27
 pandas>=2.0
 numpy>=1.24
 
+# ── PostgreSQL driver (DB_ENGINE=postgresql in docker-compose) ─
+# Binary wheel: no libpq-dev/gcc needed on the python:3.11-slim image.
+psycopg2-binary>=2.9
+
 # ── RAG pipeline : appel HTTP Ollama uniquement ───────────────
 # Pas de torch / sentence-transformers / chromadb dans ce conteneur.
 # Les embeddings KB sont faits via l'API /api/embeddings d'Ollama
