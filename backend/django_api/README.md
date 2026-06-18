@@ -76,6 +76,13 @@ Base URL : `http://localhost:8000/api/`
 | `GET` | `/api/prediction/stream/` | Connexion SSE longue durée — écoutée par `Dashboard.tsx` |
 | `POST` | `/api/daily-report/` | Reçoit le rapport prédictif depuis N8N et le diffuse en SSE |
 
+### Notifications push FCM (`history/`)
+
+| Méthode | URL | Description |
+|---|---|---|
+| `POST` | `/api/fcm-token/` | Enregistre le token push FCM d'un appareil (appelé par le frontend) |
+| `POST` | `/api/send-fcm/` | Envoie une notification push à tous les appareils enregistrés via l'API FCM v1 |
+
 ### Documentation
 
 | Méthode | URL | Description |
@@ -139,6 +146,12 @@ Ce fichier contient également le **canal de notifications N8N** :
 - `daily_report` (`POST /api/daily-report/`) — reçoit le payload prédictif envoyé chaque matin par le workflow N8N (`backend/n8n/workflows/`), le persiste dans un fichier JSON (100 derniers, via `_append_notification`) et le diffuse immédiatement à tous les clients SSE connectés.
 - `sse_stream` (`GET /api/prediction/stream/`, alias `prediction_stream`) — ouvre une connexion SSE longue durée (`StreamingHttpResponse`) avec heartbeat de connexion et keepalive toutes les 30 s ; le `Dashboard.tsx` du frontend s'y abonne via le hook `useSSEPrediction.ts` pour recevoir l'événement `llm_report` en temps réel.
 - `latest_notification` / `notifications_history` — exposent respectivement la dernière notification et l'historique complet, lus depuis le même fichier JSON.
+
+Ainsi que le **canal de notifications push FCM** :
+- `save_fcm_token` (`POST /api/fcm-token/`) — enregistre un token d'appareil dans le modèle `FCMToken` (`get_or_create`, pas de doublon).
+- `send_fcm` (`POST /api/send-fcm/`) — génère un token OAuth2 via `_get_fcm_access_token()` (JWT signé avec `FCM_PRIVATE_KEY`), envoie une notification à chaque token enregistré via l'API FCM v1, puis journalise le résultat dans `NotificationLog`. Lève une `FCMConfigError` si `FCM_PROJECT_ID` / `FCM_CLIENT_EMAIL` / `FCM_PRIVATE_KEY` sont absents ou invalides.
+
+Procédure complète de configuration FCM (Service Account, clés frontend, `google-services.json`) : [`frontend/README_APK_Android.md` section 4](../../frontend/README_APK_Android.md#4-configuration-fcm-firebase-cloud-messaging).
 
 ### `visitor_data.py`
 Copie fonctionnelle de `app/visitor_data.py`, adaptée au contexte Docker (chemin CSV via variable d'environnement `VISITOR_DATA_CSV`). Inclut un **cache en mémoire** avec invalidation par `mtime` : le CSV est rechargé uniquement si le fichier a changé sur disque.
@@ -491,8 +504,11 @@ Routage racine : monte `accounts.urls` et `history.urls` sous `/api/`, et les vu
 | `EMAIL_HOST_USER` | *(secret, depuis `.env` racine)* | Compte Gmail expéditeur des OTP de reset mot de passe |
 | `EMAIL_HOST_PASSWORD` | *(secret, depuis `.env` racine)* | Mot de passe d'application Gmail |
 | `DEFAULT_FROM_EMAIL` | `Anavid Store 360 <${EMAIL_HOST_USER}>` | Expéditeur affiché |
+| `FCM_PROJECT_ID` | *(secret, depuis `.env` racine)* | ID du projet Firebase (Service Account, notifications push) |
+| `FCM_CLIENT_EMAIL` | *(secret, depuis `.env` racine)* | E-mail du Service Account Firebase |
+| `FCM_PRIVATE_KEY` | *(secret, depuis `.env` racine)* | Clé privée du Service Account (format `\n` littéral) |
 
-> 🔒 `EMAIL_HOST_USER` et `EMAIL_HOST_PASSWORD` ne sont **jamais** écrits en dur dans `docker-compose.yml` ni dans ce dossier — ils sont injectés depuis le fichier `.env` à la racine du repo (non versionné, voir `.gitignore`). Copier `.env.example` en `.env` avant le premier lancement.
+> 🔒 `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `FCM_PROJECT_ID`, `FCM_CLIENT_EMAIL` et `FCM_PRIVATE_KEY` ne sont **jamais** écrits en dur dans `docker-compose.yml` ni dans ce dossier — ils sont injectés depuis le fichier `.env` à la racine du repo (non versionné, voir `.gitignore`). Copier `.env.example` en `.env` avant le premier lancement. Détail complet de récupération des clés FCM : [`frontend/README_APK_Android.md` section 4](../../frontend/README_APK_Android.md#4-configuration-fcm-firebase-cloud-messaging).
 
 ---
 

@@ -16,7 +16,8 @@ Plateforme d'analyse retail intelligente avec assistant IA RAG, API historique v
 8. [Structure du projet](#8-structure-du-projet)
 9. [Variables d'environnement](#9-variables-denvironnement)
 10. [Commandes Makefile](#10-commandes-makefile)
-11. [FAQ](#11-faq)
+11. [Application mobile (APK Android)](#11-application-mobile-apk-android)
+12. [FAQ](#12-faq)
 
 ---
 
@@ -240,6 +241,8 @@ Documentation Swagger interactive : http://localhost:8000/api/docs/
 | `GET` | `/api/notifications/history/` | Historique des notifications N8N |
 | `GET` | `/api/prediction/stream/` | Flux SSE temps réel (écouté par le Dashboard) |
 | `POST` | `/api/daily-report/` | Réception du rapport quotidien (appelé par N8N) |
+| `POST` | `/api/fcm-token/` | Enregistre le token push FCM d'un appareil (appelé par l'app mobile) |
+| `POST` | `/api/send-fcm/` | Envoie une notification push à tous les appareils enregistrés |
 
 ### Paramètres communs
 
@@ -294,7 +297,7 @@ anavid-smart-retail-platform/
 ├── docker-compose.yml               # Orchestration des 5 services
 ├── Makefile                         # Commandes raccourcies (Linux/Mac)
 ├── run.bat                          # Commandes raccourcies (Windows)
-├── .env                             # Secrets locaux (Gmail SMTP) — jamais commité
+├── .env                             # Secrets locaux (Gmail SMTP, FCM) — jamais commité
 ├── .env.example                     # Modèle versionné, sans secrets
 ├── .gitignore
 ├── README.md                        # Ce fichier
@@ -302,7 +305,11 @@ anavid-smart-retail-platform/
 ├── frontend/                        # App Ionic React (Vite)
 │   ├── Dockerfile
 │   ├── README.md
-│   ├── .env                         # VITE_API_URL=http://localhost:8000/api
+│   ├── README_APK_Android.md        # Guide complet : build APK + configuration FCM
+│   ├── .env                         # VITE_API_URL + clés Firebase — jamais commité
+│   ├── .env.example                 # Modèle versionné, sans secrets
+│   ├── android/                     # Projet Android natif (généré par Capacitor)
+│   │   └── app/google-services.json # Identifiants Firebase Android — jamais commité
 │   └── src/
 │       ├── App.tsx                  # Routage (public: /login, /register · protégé: /dashboard, /chat, /predictions)
 │       ├── components/              # TabBar, Notifications, PrivateRoute
@@ -361,7 +368,7 @@ anavid-smart-retail-platform/
 
 ### Fichier `.env` (racine du projet) — secrets, **jamais commité**
 
-`docker compose` lit automatiquement le fichier `.env` situé à la racine pour substituer les `${VARIABLES}` déclarées dans `docker-compose.yml`. Ce fichier contient les vrais identifiants Gmail et **ne doit jamais être poussé sur Git** — il est listé dans `.gitignore`.
+`docker compose` lit automatiquement le fichier `.env` situé à la racine pour substituer les `${VARIABLES}` déclarées dans `docker-compose.yml`. Ce fichier contient les vrais identifiants Gmail et la clé de service Firebase, et **ne doit jamais être poussé sur Git** — il est listé dans `.gitignore`.
 
 ```bash
 cp .env.example .env
@@ -372,8 +379,17 @@ cp .env.example .env
 |---|---|
 | `EMAIL_HOST_USER` | Adresse Gmail utilisée pour l'envoi des e-mails OTP (réinitialisation de mot de passe) |
 | `EMAIL_HOST_PASSWORD` | **Mot de passe d'application** Gmail (16 caractères) — pas le mot de passe du compte |
+| `FCM_PROJECT_ID` | ID du projet Firebase (Service Account) — pour l'envoi de notifications push |
+| `FCM_CLIENT_EMAIL` | E-mail du Service Account Firebase |
+| `FCM_PRIVATE_KEY` | Clé privée du Service Account (format PEM avec `\n` littéraux, voir ci-dessous) |
 
 > ⚠️ **Sécurité** — Ne jamais utiliser le mot de passe principal du compte Gmail. Générer un mot de passe d'application dédié sur [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) (nécessite la validation en 2 étapes activée sur le compte Google). Si ces identifiants ont déjà été commités par le passé, ils restent visibles dans l'historique Git même après suppression : il faut alors révoquer ce mot de passe d'application depuis le compte Google et en générer un nouveau.
+
+> ⚠️ **FCM_PRIVATE_KEY** — la clé privée du Service Account Firebase (Console Firebase → Paramètres du projet → Comptes de service → Générer une nouvelle clé privée) doit être collée sur **une seule ligne**, retours à la ligne encodés en `\n` littéral, entourée de guillemets doubles :
+> ```env
+> FCM_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEv...\n-----END PRIVATE KEY-----\n"
+> ```
+> Procédure complète, y compris la configuration côté frontend (`VITE_FIREBASE_*`, `google-services.json`) : voir [`frontend/README_APK_Android.md`](frontend/README_APK_Android.md#4-configuration-fcm-firebase-cloud-messaging).
 
 `.env.example` est le modèle versionné (sans secrets) servant de documentation pour quiconque clone le projet.
 
@@ -391,12 +407,25 @@ cp .env.example .env
 | `EMAIL_HOST_USER` | *(depuis `.env`)* | Voir ci-dessus |
 | `EMAIL_HOST_PASSWORD` | *(depuis `.env`)* | Voir ci-dessus |
 | `DEFAULT_FROM_EMAIL` | `Anavid Store 360 <${EMAIL_HOST_USER}>` | Expéditeur affiché dans les e-mails envoyés |
+| `FCM_PROJECT_ID` | *(depuis `.env`)* | ID du projet Firebase (notifications push) |
+| `FCM_CLIENT_EMAIL` | *(depuis `.env`)* | E-mail du Service Account Firebase |
+| `FCM_PRIVATE_KEY` | *(depuis `.env`)* | Clé privée du Service Account Firebase |
 
 ### `frontend` (fichier `frontend/.env`)
 
 | Variable | Valeur | Description |
 |---|---|---|
-| `VITE_API_URL` | `http://localhost:8000/api` | URL de l'API Django |
+| `VITE_API_URL` | `http://localhost:8000/api` | URL de base de l'API Django |
+| `VITE_FIREBASE_API_KEY` | *(depuis Firebase Console)* | Clé API du projet Firebase |
+| `VITE_FIREBASE_AUTH_DOMAIN` | *(depuis Firebase Console)* | Domaine d'authentification Firebase |
+| `VITE_FIREBASE_PROJECT_ID` | *(depuis Firebase Console)* | ID du projet Firebase |
+| `VITE_FIREBASE_STORAGE_BUCKET` | *(depuis Firebase Console)* | Bucket de stockage Firebase |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | *(depuis Firebase Console)* | Sender ID FCM |
+| `VITE_FIREBASE_APP_ID` | *(depuis Firebase Console)* | ID de l'app Firebase Web |
+| `VITE_FIREBASE_MEASUREMENT_ID` | *(depuis Firebase Console)* | ID Google Analytics (optionnel) |
+| `VITE_FIREBASE_VAPID_KEY` | *(depuis Firebase Console → Cloud Messaging)* | Clé Web Push (chemin navigateur uniquement) |
+
+> Détail complet de la configuration FCM (récupération de chaque clé, `google-services.json`, Service Account) : voir [`frontend/README_APK_Android.md`](frontend/README_APK_Android.md#4-configuration-fcm-firebase-cloud-messaging).
 
 ### Changer de modèle sans rebuild
 
@@ -444,7 +473,40 @@ run.bat clean-all
 
 ---
 
-## 11. FAQ
+## 11. Application mobile (APK Android)
+
+Le frontend peut être packagé en application Android native via **Capacitor**, avec notifications push **Firebase Cloud Messaging (FCM)**.
+
+Procédure complète (build, configuration FCM détaillée, signature release, dépannage) : voir **[`frontend/README_APK_Android.md`](frontend/README_APK_Android.md)**.
+
+### Résumé express
+
+```bash
+cd frontend
+npm install
+npm run build
+cap sync android
+cap open android
+# Puis dans Android Studio : Build → Build Bundle(s) / APK(s) → Build APK(s)
+```
+
+Fichiers à créer manuellement avant le build (non versionnés) :
+
+| Fichier | Rôle |
+|---|---|
+| `frontend/.env` | URL du backend + clés Firebase (voir `frontend/.env.example`) |
+| `frontend/android/app/google-services.json` | Active les notifications push natives FCM |
+
+### Notifications push (FCM) — résumé
+
+- **Côté frontend** (`VITE_FIREBASE_*`, `google-services.json`) : permet à l'app de **recevoir** les notifications.
+- **Côté backend** (`FCM_PROJECT_ID`, `FCM_CLIENT_EMAIL`, `FCM_PRIVATE_KEY` dans le `.env` racine) : permet à Django d'**envoyer** les notifications via `POST /api/send-fcm/`.
+
+Détail complet de récupération de chaque clé : [`frontend/README_APK_Android.md` section 4](frontend/README_APK_Android.md#4-configuration-fcm-firebase-cloud-messaging).
+
+---
+
+## 12. FAQ
 
 **Le chat répond "Ollama non joignable"**
 

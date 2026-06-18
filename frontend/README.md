@@ -12,7 +12,7 @@ Application web/mobile **Ionic + React + Vite** consommée par les commerçants 
 | Bundler | Vite 5 |
 | Routage | `react-router-dom` v5 via `@ionic/react-router` |
 | Graphiques | Chart.js + `react-chartjs-2` |
-| Mobile natif | Capacitor (Android) + `@capacitor-firebase/messaging` (push notifications) |
+| Mobile natif | Capacitor (Android) + `@capacitor-firebase/messaging` (push notifications FCM) + SDK `firebase` (chemin web best-effort) |
 | Langage | TypeScript |
 
 ---
@@ -25,15 +25,20 @@ frontend/
 ├── nginx.conf                # Config nginx (déploiement prod statique — non utilisée par le Dockerfile dev actuel)
 ├── vite.config.ts            # Plugins React + legacy, serveur 0.0.0.0:5173, config Vitest
 ├── ionic.config.json
-├── .env                      # VITE_API_URL — URL de l'API Django
+├── capacitor.config.ts       # Config Capacitor (Android, androidScheme http pour le Mixed Content)
+├── .env                      # VITE_API_URL + clés Firebase — jamais commité
+├── .env.example              # Modèle versionné, sans secrets
+├── README_APK_Android.md     # Guide complet : build APK Android + configuration FCM
+├── android/                  # Projet Android natif (généré par Capacitor)
+│   └── app/google-services.json  # Identifiants Firebase Android — jamais commité
 ├── public/                   # Assets statiques (favicon, manifest PWA)
 └── src/
     ├── App.tsx                # Routage racine (voir src/README.md)
     ├── main.tsx                # Point d'entrée React
     ├── components/             # TabBar, Notifications, PrivateRoute
-    ├── hooks/                  # useSSEPrediction.ts
+    ├── hooks/                  # useSSEPrediction.ts, useFirebaseMessaging.ts (token FCM + listeners)
     ├── pages/                  # Login, Register, Dashboard, ChatIA, Historique
-    ├── services/                # Clients HTTP (api.ts, auth.ts, chatBridge.ts)
+    ├── services/                # Clients HTTP (api.ts, auth.ts, chatBridge.ts, fcm.ts)
     ├── theme/                  # Variables CSS Ionic
     └── types/                  # Types TypeScript partagés
 ```
@@ -62,8 +67,22 @@ Les routes protégées passent par `PrivateRoute.tsx`, qui vérifie la présence
 | Variable | Valeur par défaut | Description |
 |---|---|---|
 | `VITE_API_URL` | `http://localhost:8000/api` | URL de base de l'API Django consommée par `services/api.ts` et `services/auth.ts` |
+| `VITE_FIREBASE_API_KEY` | — | Clé API du projet Firebase (notifications push) |
+| `VITE_FIREBASE_AUTH_DOMAIN` | — | Domaine d'authentification Firebase |
+| `VITE_FIREBASE_PROJECT_ID` | — | ID du projet Firebase |
+| `VITE_FIREBASE_STORAGE_BUCKET` | — | Bucket de stockage Firebase |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | — | Sender ID FCM |
+| `VITE_FIREBASE_APP_ID` | — | ID de l'app Firebase Web |
+| `VITE_FIREBASE_MEASUREMENT_ID` | — | ID Google Analytics (optionnel) |
+| `VITE_FIREBASE_VAPID_KEY` | — | Clé Web Push (chemin navigateur uniquement, voir `README_APK_Android.md`) |
 
-> Ce `.env` ne contient **aucun secret** (juste une URL) — il peut rester versionné. Les vrais secrets (Gmail SMTP) sont gérés côté backend, dans le `.env` à la racine du repo (voir `README.md` racine, section 9).
+> ⚠️ Ce `.env` contient des clés Firebase **publiques** (sans risque de sécurité majeur si exposées, car restreintes côté Firebase par domaine/app ID) mais doit malgré tout rester non versionné par convention. Le vrai secret sensible (Service Account Firebase pour l'**envoi** de notifications, identifiants Gmail) est géré côté backend, dans le `.env` à la racine du repo (voir `README.md` racine, section 9, et `README_APK_Android.md` section 4 pour le détail FCM complet).
+>
+> Un modèle commenté est disponible dans `frontend/.env.example` :
+> ```bash
+> cp .env.example .env
+> # puis éditer .env avec vos propres valeurs
+> ```
 
 ---
 
@@ -87,6 +106,21 @@ npm run dev          # http://localhost:5173
 | `npm run lint` | ESLint |
 | `npm run test.unit` | Tests unitaires (Vitest) |
 | `npm run test.e2e` | Tests end-to-end (Cypress) |
+
+---
+
+## Application mobile (APK Android) & notifications push
+
+Le frontend est packagé en application Android native via Capacitor (dossier `android/`, déjà généré). Procédure complète de build APK et de configuration des notifications push Firebase Cloud Messaging (FCM) : voir **[`README_APK_Android.md`](README_APK_Android.md)**.
+
+Résumé express :
+
+```bash
+npm run build
+cap sync android
+cap open android
+# Puis dans Android Studio : Build → Build Bundle(s) / APK(s) → Build APK(s)
+```
 
 ---
 

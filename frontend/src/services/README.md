@@ -46,3 +46,17 @@ sendToChat("Quel est le flux horaire d'hier ?");
 ```
 
 Si aucun écouteur n'est enregistré au moment de l'appel (le Chat IA n'est pas affiché), le message est mis en attente (`_pending`) et délivré dès que `registerChatListener()` est appelé (montage de `ChatIA.tsx`). Utilisé notamment par `components/Notifications.tsx` pour rediriger une question vers le chat depuis une notification.
+
+## `fcm.ts` — Client notifications push (FCM)
+
+Consomme les endpoints `/api/fcm-token/` et `/api/send-fcm/` côté backend.
+
+| Fonction | Endpoint / rôle |
+|---|---|
+| `saveFCMToken(token)` | `POST /api/fcm-token/` — enregistre le token de l'appareil après obtention via `hooks/useFirebaseMessaging.ts` |
+| `sendFCMNotification(title, body, data?)` | `POST /api/send-fcm/` — envoie une notification push à tous les appareils enregistrés |
+| `notifyReportGenerated(reportDate, summary)` | Raccourci : notification "📊 Nouveau Rapport" |
+| `notifyForecastAvailable(date, visitorCount)` | Raccourci : notification "🔮 Prévision Disponible" |
+| `sendAlert(alertType, message)` | Raccourci : notification "⚠️ Alerte ShopAnalytics" |
+
+Configuration complète (clés Firebase frontend, Service Account backend, `google-services.json`) : voir [`frontend/README_APK_Android.md` section 4](../../README_APK_Android.md#4-configuration-fcm-firebase-cloud-messaging).

@@ -92,6 +92,8 @@ Base URL : `http://localhost:8000/api/`
 | `GET` | `/api/history/summary/` | KPIs globaux |
 | `GET` | `/api/history/cameras/` | Liste des caméras |
 | `POST` | `/api/chat/` | Chat RAG en langage naturel |
+| `POST` | `/api/fcm-token/` | Enregistre un token FCM d'appareil (appelé par le frontend) |
+| `POST` | `/api/send-fcm/` | Envoie une notification push à tous les appareils enregistrés |
 | `GET` | `/api/docs/` | Swagger UI |
 | `GET` | `/api/redoc/` | ReDoc |
 
@@ -239,6 +241,12 @@ _call_ollama()            # génération via Ollama /api/generate
 | `OLLAMA_MODEL` | `llama3.2:3b-instruct-q4_K_M` | Modèle LLM actif |
 | `VISITOR_DATA_CSV` | `/app/data/shoppingclub_2025_2026.csv` | Chemin CSV visiteurs |
 | `DJANGO_ALLOWED_HOSTS` | `*` | Hosts autorisés |
+| `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` | — | Identifiants Gmail SMTP (OTP reset mot de passe) — voir `.env.example` racine |
+| `FCM_PROJECT_ID` | — | ID du projet Firebase (Service Account, notifications push) |
+| `FCM_CLIENT_EMAIL` | — | E-mail du Service Account Firebase |
+| `FCM_PRIVATE_KEY` | — | Clé privée du Service Account (format `\n` littéral — voir `frontend/README_APK_Android.md` section 4.5) |
+
+> Procédure complète de récupération des clés FCM (Service Account + clés frontend + `google-services.json`) : [`frontend/README_APK_Android.md`](../frontend/README_APK_Android.md#4-configuration-fcm-firebase-cloud-messaging).
 
 ---
 

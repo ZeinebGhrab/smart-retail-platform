@@ -8,11 +8,12 @@ Application Django principale : expose les endpoints analytiques sur les donnée
 
 | Fichier | Rôle |
 |---|---|
-| `views.py` | Endpoints REST analytics + notifications N8N + flux SSE |
+| `views.py` | Endpoints REST analytics + notifications N8N + flux SSE + FCM |
 | `visitor_data.py` | Lecture/cache du CSV visiteurs + fonctions de calcul analytique |
 | `rag_pipeline.py` | Pipeline RAG (retrieval CSV + KB, appel Ollama) |
 | `chat_view.py` | Endpoint `POST /api/chat/`, orchestre `rag_pipeline.py` |
-| `urls.py` | Routage de tous les endpoints `history/`, `notifications/`, `prediction/`, `daily-report/` et `chat/` |
+| `models.py` | `FCMToken`, `NotificationLog`, `Notification` |
+| `urls.py` | Routage de tous les endpoints `history/`, `notifications/`, `prediction/`, `daily-report/`, `chat/` et FCM (`fcm-token/`, `send-fcm/`) |
 | `apps.py` | Configuration de l'app (`AppConfig`) |
 
 ---
@@ -48,6 +49,38 @@ Paramètres communs (query string) : `date` (`YYYY-MM-DD`), `start_date` / `end_
 | `GET` | `notifications/history/` | `notifications_history` | Historique complet (jusqu'à 100 entrées), tableau JSON brut |
 | `GET` | `prediction/stream/` | `sse_stream` (alias `prediction_stream`) | Connexion SSE longue durée |
 | `POST` | `daily-report/` | `daily_report` | Reçoit le payload prédictif depuis N8N et le diffuse en SSE |
+
+### Notifications push (FCM)
+
+| Méthode | URL | Vue | Description |
+|---|---|---|---|
+| `POST` | `fcm-token/` | `save_fcm_token` | Enregistre le token FCM d'un appareil (`FCMToken.objects.get_or_create`) |
+| `POST` | `send-fcm/` | `send_fcm` | Envoie une notification push à tous les tokens enregistrés via l'API FCM v1, journalise le résultat dans `NotificationLog` |
+
+Configuration complète (Service Account Firebase, variables `FCM_PROJECT_ID` / `FCM_CLIENT_EMAIL` / `FCM_PRIVATE_KEY`) : voir [`frontend/README_APK_Android.md` section 4](../../../frontend/README_APK_Android.md#4-configuration-fcm-firebase-cloud-messaging).
+
+---
+
+## Flux notifications push (FCM)
+
+```
+Frontend (hooks/useFirebaseMessaging.ts)
+      │ obtient un token FCM (natif ou web)
+      ▼
+POST /api/fcm-token/ ──► save_fcm_token ──► FCMToken.objects.get_or_create(token=...)
+
+[Déclenché manuellement ou via services/fcm.ts::sendFCMNotification]
+POST /api/send-fcm/ ──► send_fcm
+      │
+      ├─► _get_fcm_access_token()   — OAuth2 JWT signé avec FCM_PRIVATE_KEY
+      ├─► lecture de tous les FCMToken en base
+      ▼
+POST https://fcm.googleapis.com/v1/projects/{FCM_PROJECT_ID}/messages:send  (un appel par token)
+      ▼
+NotificationLog créé (title, body, sent_count, error_count, errors)
+```
+
+Si aucun token n'est enregistré, `send_fcm` renvoie `{"sent": 0, "errors": [], "info": "..."}` sans erreur (HTTP 200). Si la configuration FCM (`FCM_PROJECT_ID` / `FCM_CLIENT_EMAIL` / `FCM_PRIVATE_KEY`) est incomplète ou invalide, une `FCMConfigError` est levée avec un message explicite.
 
 ---
 
