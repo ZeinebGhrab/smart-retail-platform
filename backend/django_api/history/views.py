@@ -113,6 +113,7 @@ def cameras(request):
 # ── Notifications N8N — lecture / écriture fichier JSON ─────
 
 def _read_notifications() -> list:
+    """Lit les notifications depuis le fichier JSON."""
     if not _NOTIF_FILE.exists():
         return []
     try:
@@ -123,13 +124,21 @@ def _read_notifications() -> list:
         return []
 
 
-def _append_notification(payload: dict) -> None:
+def _write_notifications(data: list) -> None:
+    """Écrit les notifications dans le fichier JSON."""
     _NOTIF_DIR.mkdir(parents=True, exist_ok=True)
+    with open(_NOTIF_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def _append_notification(payload: dict) -> None:
+    """Ajoute une nouvelle notification."""
     history = _read_notifications()
+    # ← NOUVEAU: ajouter le champ is_read=False pour les nouvelles notifications
+    payload.setdefault('is_read', False)
     history.append(payload)
     history = history[-100:]
-    with open(_NOTIF_FILE, "w", encoding="utf-8") as f:
-        json.dump(history, f, ensure_ascii=False, indent=2)
+    _write_notifications(history)
 
 
 @extend_schema(
@@ -150,7 +159,44 @@ def latest_notification(request):
 )
 @api_view(["GET"])
 def notifications_history(request):
-    return Response(_read_notifications())
+    # ← MODIFIÉ: ajouter le champ is_read par défaut
+    notifications = _read_notifications()
+    for notif in notifications:
+        notif.setdefault('is_read', False)
+    return Response(notifications)
+
+
+# ← NOUVEAU: endpoint pour marquer une notification comme lue
+@extend_schema(
+    tags=["Notifications — N8N"],
+    summary="Marquer une notification comme lue",
+)
+@api_view(["POST"])
+def mark_notification_read(request, notification_id):
+    """
+    POST /api/notifications/{notification_id}/mark-read/
+    Marque la notification avec l'ID spécifié comme lue.
+    """
+    history = _read_notifications()
+    
+    # Chercher la notification par ID
+    notification_found = False
+    for notif in history:
+        if notif.get('id') == int(notification_id):
+            notif['is_read'] = True
+            notification_found = True
+            break
+    
+    if not notification_found:
+        return Response(
+            {"error": f"Notification avec l'ID {notification_id} non trouvée"},
+            status=404
+        )
+    
+    # Sauvegarder les modifications
+    _write_notifications(history)
+    
+    return Response({"status": "ok", "message": "Notification marquée comme lue"})
 
 
 # ── SSE stream ───────────────────────────────────────────────

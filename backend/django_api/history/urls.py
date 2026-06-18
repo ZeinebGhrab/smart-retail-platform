@@ -18,6 +18,8 @@ urlpatterns = [
     # ── Notifications N8N ────────────────────────────────────
     path("notifications/latest/",      views.latest_notification),
     path("notifications/history/",     views.notifications_history,  name="notifications-history"),  
+    # endpoint pour marquer une notification comme lue
+    path("notifications/<int:notification_id>/mark-read/", views.mark_notification_read, name="mark-notification-read"),
     path("prediction/stream/",         views.prediction_stream),
     path("daily-report/",              views.receive_daily_report),
 

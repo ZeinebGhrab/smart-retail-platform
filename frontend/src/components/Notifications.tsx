@@ -6,10 +6,17 @@ import { sendToChat } from '../services/chatBridge';
 import './Notifications.css';
 
 interface Notification {
-  id: number; date: string; generated_at: string;
-  visiteurs_prevus: number; profil_dominant: string;
-  niveau_affluence: string; heure_pointe: string;
-  message: string; model: string; type: string;
+  id: number; 
+  date: string; 
+  generated_at: string;
+  visiteurs_prevus: number; 
+  profil_dominant: string;
+  niveau_affluence: string; 
+  heure_pointe: string;
+  message: string; 
+  model: string; 
+  type: string;
+  is_read?: boolean; // ← NOUVEAU: champ pour savoir si la notification a été lue
 }
 
 const API = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000/api';
@@ -40,16 +47,30 @@ async function fetchLatest(): Promise<Notification | null> {
   } catch {}
   return null;
 }
+
 async function fetchHistory(): Promise<Notification[]> {
   try {
     const r = await fetch(`${API}/notifications/history/`);
     if (r.ok) {
       const j = await r.json();
-      if (Array.isArray(j)) return j;
-      if (Array.isArray(j?.results)) return j.results;
+      const items = Array.isArray(j) ? j : Array.isArray(j?.results) ? j.results : [];
+      // ← TRI: afficher du plus récent au plus ancien (inverse l'ordre)
+      return items.reverse();
     }
   } catch {}
   return [];
+}
+
+// ← NOUVEAU: fonction pour marquer une notification comme lue
+async function markNotificationAsRead(notificationId: number): Promise<boolean> {
+  try {
+    const r = await fetch(`${API}/notifications/${notificationId}/mark-read/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return r.ok;
+  } catch {}
+  return false;
 }
 
 const NotificationPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -74,6 +95,19 @@ const NotificationPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     sendToChat(msg);
     onClose();
     history.push('/chat');
+  };
+
+  // ← NOUVEAU: marquer comme lue au clic sur la carte
+  const handleExpandNotification = async (index: number) => {
+    const n = list[index];
+    if (n && !n.is_read) {
+      await markNotificationAsRead(n.id);
+      // Mettre à jour l'état local
+      const updated = [...list];
+      updated[index].is_read = true;
+      setList(updated);
+    }
+    setExpanded(expanded === index ? null : index);
   };
 
   return (
@@ -101,9 +135,15 @@ const NotificationPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         ) : (
           <div className="notif-list">
             {list.map((n, i) => (
-              <div key={n.id} className={`notif-card ${i === 0 ? 'notif-card-latest' : ''}`}>
-                <div className="notif-card-header" onClick={() => setExpanded(expanded === i ? null : i)}>
+              // ← MODIFIÉ: ajouter la classe 'notif-card-unread' si non lue
+              <div 
+                key={n.id} 
+                className={`notif-card ${i === 0 ? 'notif-card-latest' : ''} ${!n.is_read ? 'notif-card-unread' : ''}`}
+              >
+                <div className="notif-card-header" onClick={() => handleExpandNotification(i)}>
                   <div className="notif-card-left">
+                    {/* ← NOUVEAU: badge indicateur lu/non lu */}
+                    {!n.is_read && <div className="notif-unread-indicator" />}
                     <div className="notif-card-icon">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                         <circle cx="12" cy="12" r="10" stroke="#2563eb" strokeWidth="2"/>

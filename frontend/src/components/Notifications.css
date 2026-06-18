@@ -113,10 +113,39 @@
   border: 1px solid #e2e6f0;
   border-radius: 12px;
   overflow: hidden;
-  transition: border-color .15s;
+  transition: border-color .15s, background-color .15s;
 }
 .notif-card-latest {
   border-color: #2563eb;
+}
+
+/* ← NOUVEAU: style pour les notifications non lues */
+.notif-card-unread {
+  background: #f0f4ff;
+  border: 1.5px solid #dbeafe;
+  position: relative;
+}
+.notif-card-unread .notif-card-header:hover {
+  background: rgba(37, 99, 235, 0.10);
+}
+
+/* ← NOUVEAU: indicateur visuel pour les notifications non lues */
+.notif-unread-indicator {
+  width: 8px;
+  height: 8px;
+  background: #dc2626;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .notif-card-header {
