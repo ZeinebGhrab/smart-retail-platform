@@ -116,7 +116,7 @@ git clone <url-du-repo>
 cd anavid-smart-retail-platform
 
 # 1. Configurer les secrets (jamais commités, voir section 9)
-cp .env.example .env
+cp example.env .env
 # → éditer .env et renseigner EMAIL_HOST_USER / EMAIL_HOST_PASSWORD
 
 # 2. Lancer la stack
