@@ -199,6 +199,13 @@ services:
       - WEBHOOK_URL=http://shopanalytics-n8n:5678/
       - GENERIC_TIMEZONE=Europe/Paris
       - N8N_SECURE_COOKIE=false
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - N8N_VERSION_NOTIFICATIONS_ENABLED=false
+      - N8N_TEMPLATES_ENABLED=false
+      - N8N_HIRING_BANNER_ENABLED=false
+      - N8N_COMMUNITY_PACKAGES_ENABLED=false
+      - EXTERNAL_FRONTEND_HOOKS_URLS=
+      - N8N_PERSONALIZATION_ENABLED=false
     volumes:
       - n8n_data:/home/node/.n8n
       - ./backend/n8n/workflows:/workflows
