@@ -14,7 +14,6 @@
 # ============================================================
 
 services:
-
   # ── Database PostgreSQL ──────────────────────────────────────
   postgres:
     image: postgres:15-alpine
@@ -137,7 +136,11 @@ services:
       - FCM_CLIENT_EMAIL=${FCM_CLIENT_EMAIL}
       - FCM_PRIVATE_KEY=${FCM_PRIVATE_KEY}
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request as u; u.urlopen('http://localhost:8000/api/schema/', timeout=3)\" || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          'python -c "import urllib.request as u; u.urlopen(''http://localhost:8000/api/schema/'', timeout=3)" || exit 1',
+        ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -146,9 +149,19 @@ services:
     networks:
       shopanalytics_net:
         aliases:
-          - shopanalytics-django-api   # accepte l'ancien hostname n8n
+          - shopanalytics-django-api # accepte l'ancien hostname n8n
 
-
+  # ── ML Model API — Visitor Profile Prediction ───────────────
+  visitor_ml_api:
+    build:
+      context: ./modele-ML
+      dockerfile: Dockerfile
+    container_name: shopanalytics-visitor-ml-api
+    ports:
+      - "8001:8000"
+    restart: unless-stopped
+    networks:
+      - shopanalytics_net
   # ── Frontend Ionic React — dev (hot-reload) ──────────────────
   frontend:
     build:
@@ -157,7 +170,7 @@ services:
     ports:
       - "5173:5173"
     volumes:
-      - ./frontend:/app                        # volume dev → Vite lit .env du host
+      - ./frontend:/app # volume dev → Vite lit .env du host
       - frontend_node_modules:/app/node_modules
     environment:
       - NODE_ENV=development
