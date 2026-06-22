@@ -14,7 +14,7 @@
 # ============================================================
 
 services:
-  # ── Database PostgreSQL ──────────────────────────────────────
+  # ── Database PostgreSQL ──────────────────────────────────────────────────────
   postgres:
     image: postgres:15-alpine
     container_name: shopanalytics-postgres
@@ -35,7 +35,7 @@ services:
     networks:
       - shopanalytics_net
 
-  # ── LLM local ───────────────────────────────────────────────
+  # ── LLM local ────────────────────────────────────────────────────────────────
   ollama:
     image: ollama/ollama:latest
     container_name: shopanalytics-ollama
@@ -67,7 +67,7 @@ services:
     networks:
       - shopanalytics_net
 
-  # ── Benchmark one-shot ───────────────────────────────────────
+  # ── Benchmark one-shot ───────────────────────────────────────────────────────
   benchmark:
     image: python:3.11-slim
     container_name: shopanalytics-benchmark
@@ -92,7 +92,7 @@ services:
     networks:
       - shopanalytics_net
 
-  # ── Backend Django — API REST + RAG ─────────────────────────
+  # ── Backend Django — API REST + RAG ─────────────────────────────────────────
   django_api:
     build:
       context: ./backend
@@ -122,14 +122,14 @@ services:
       - VISITOR_DATA_CSV=/app/data/shoppingclub_2025_2026.csv
       - OLLAMA_HOST=http://ollama:11434
       - OLLAMA_MODEL=llama3.2:3b-instruct-q4_K_M
-      # ── Gmail SMTP ───────────────────────────────────────────
+      # ── Gmail SMTP ───────────────────────────────────────────────────────────
       - EMAIL_HOST=smtp.gmail.com
       - EMAIL_PORT=587
       - EMAIL_USE_TLS=true
       - EMAIL_HOST_USER=${EMAIL_HOST_USER}
       - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
       - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
-      # ── Firebase Cloud Messaging (Service Account) ────────────
+      # ── Firebase Cloud Messaging (Service Account) ────────────────────────
       # À récupérer : Firebase Console → Paramètres du projet →
       # Comptes de service → Générer une nouvelle clé privée.
       - FCM_PROJECT_ID=${FCM_PROJECT_ID}
@@ -151,7 +151,7 @@ services:
         aliases:
           - shopanalytics-django-api # accepte l'ancien hostname n8n
 
-  # ── ML Model API — Visitor Profile Prediction ───────────────
+  # ── ML Model API — Visitor Profile Prediction ───────────────────────────────
   visitor_ml_api:
     build:
       context: ./modele-ML
@@ -159,10 +159,21 @@ services:
     container_name: shopanalytics-visitor-ml-api
     ports:
       - "8001:8000"
+    volumes:
+      - ./modele-ML/xgboost_visitor_mvp.pkl:/app/xgboost_visitor_mvp.pkl:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request as u; u.urlopen('http://localhost:8000/health', timeout=3)\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     restart: unless-stopped
     networks:
       - shopanalytics_net
-  # ── Frontend Ionic React — dev (hot-reload) ──────────────────
+
+  # ── Frontend Ionic React — dev (hot-reload) ──────────────────────────────────
   frontend:
     build:
       context: ./frontend
@@ -174,7 +185,7 @@ services:
       - frontend_node_modules:/app/node_modules
     environment:
       - NODE_ENV=development
-      # ── Firebase / FCM — lues par Vite via import.meta.env ───
+      # ── Firebase / FCM — lues par Vite via import.meta.env ───────────────
       # ⚠️  Ces variables DOUBLENT celles du .env comme filet de sécurité.
       #     Vite en mode dev avec volume lit directement frontend/.env ;
       #     les env Docker ci-dessous couvrent les cas où le .env est absent.
@@ -191,7 +202,7 @@ services:
     networks:
       - shopanalytics_net
 
-  # ── Orchestrateur de workflows — N8N ─────────────────────────
+  # ── Orchestrateur de workflows — N8N ─────────────────────────────────────────
   n8n:
     image: n8nio/n8n:latest
     container_name: shopanalytics-n8n

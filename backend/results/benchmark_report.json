@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-18T03:43:39.365009",
+  "generated_at": "2026-06-19T13:05:24.621303",
   "thresholds": {
     "ttft_max_sec": 1.5,
     "throughput_min_tps": 20.0,
@@ -10,75 +10,70 @@
     {
       "model_id": "llama3.2:3b-instruct-q4_K_M",
       "label": "Llama 3.2 3B (q4_K_M)",
-      "timestamp": "2026-06-18T03:42:18.006887",
+      "timestamp": "2026-06-19T13:04:13.015911",
       "ttft_throughput": {
-        "ttft_avg": 0.454,
-        "ttft_min": 0.411,
-        "throughput_avg": 73.0,
-        "throughput_max": 74.1
+        "ttft_avg": 0.259,
+        "ttft_min": 0.24,
+        "throughput_avg": 70.5,
+        "throughput_max": 72.9
       },
       "tool_calling": {
         "total_queries": 50,
-        "valid_json": 43,
-        "valid_json_pct": 86.0,
-        "valid_tool_structure": 43,
-        "valid_tool_pct": 86.0,
+        "valid_json": 44,
+        "valid_json_pct": 88.0,
+        "valid_tool_structure": 44,
+        "valid_tool_pct": 88.0,
         "errors": [
           {
-            "id": 13,
+            "id": 6,
             "reason": "invalid_json",
-            "raw": "{\n  \"tool\": \"Average Basket Size Calculator\",\n  \"parameters\": {\n    \"metric\": \"mean\",\n    \"timeframe"
+            "raw": "{\n  \"tool\": \"Conversion Rate Calculator\",\n  \"parameters\": {\n    \"metric\": \"conversion_rate\",\n    \"ti"
           },
           {
-            "id": 14,
+            "id": 8,
             "reason": "invalid_json",
-            "raw": "{\n  \"tool\": \"Sales Comparison\",\n  \"parameters\": {\n    \"dateRange\": \"2022-04-01:2023-03-31\",\n    \"pro"
+            "raw": "{\n  \"tool\": \"Sales Report\",\n  \"parameters\": {\n    \"start_date\": \"2026-06-01\",\n    \"end_date\": \"2026-"
           },
           {
             "id": 17,
             "reason": "invalid_json",
-            "raw": "{\n  \"tool\": \"Sales Promotion Analyzer\",\n  \"parameters\": {\n    \"promotion_id\": \"PROMO-20%\",\n    \"date"
+            "raw": "{\n  \"tool\": \"Sales by Promotion\",\n  \"parameters\": {\n    \"promotion_id\": \"PROMO-20%\",\n    \"date_range"
           },
           {
-            "id": 32,
+            "id": 24,
             "reason": "invalid_json",
-            "raw": "{\n  \"tool\": \"Promotion Calendar\",\n  \"parameters\": {\n    \"date_range\": \"2026-07-01:2026-12-31\"\n  }"
+            "raw": "{\n  \"tool\": \"Predictive Analytics\",\n  \"parameters\": {\n    \"date_range\": \"2024-04-01:2024-04-07\"\n  }"
+          },
+          {
+            "id": 30,
+            "reason": "invalid_json",
+            "raw": "{\n  \"tool\": \"Product Discount Analysis\",\n  \"parameters\": {\n    \"category\": \"Vente\",\n    \"filter\": \"D"
           },
           {
             "id": 41,
             "reason": "invalid_json",
             "raw": "{\n  \"tool\": \"Sales Report\",\n  \"parameters\": {\n    \"date\": \"2026-06-07T10:00:00\",\n    \"time_range\": \""
-          },
-          {
-            "id": 42,
-            "reason": "invalid_json",
-            "raw": "{\n  \"tool\": \"Sales Weekly Objective\",\n  \"parameters\": {\n    \"target\": \"Increase sales by 10% compare"
-          },
-          {
-            "id": 49,
-            "reason": "invalid_json",
-            "raw": "{\n  \"tool\": \"SalesByVendor\",\n  \"parameters\": {\n    \"dateRange\": \"2023-06-01:2023-06-30\"\n  }"
           }
         ]
       },
       "anti_hallucination": {
-        "response": "Je vais corriger les faits pour vous fournir une réponse précise.\n\nLe magasin n'a pas réalisé de ventes le 11 juin, car il était fermé pour inventaire. Il a également neigé à Sfax, ce qui est impossible dans la région, car il fait 38°C et soleil.",
-        "mentions_correct_sales": false,
-        "invented_snow": true,
+        "response": "Je suis désolé, mais je dois corriger une erreur dans votre question.\n\nIl n'a pas neigé à Sfax le 11 juin 2026, car il fait 38°C et soleil. Il est également fermé pour inventaire, ce qui signifie qu'il n'y a eu aucune vente réalisée.\n\nLa réponse correcte est donc : Aucune vente a été réalisée, et il",
+        "mentions_correct_sales": true,
+        "invented_snow": false,
         "mentions_correct_weather": true,
-        "hallucination_free": false
+        "hallucination_free": true
       },
       "context_latency": {
-        "throughput_short_ctx": 72.2,
-        "throughput_long_ctx": 58.7,
-        "degradation_pct": 18.7
+        "throughput_short_ctx": 69.7,
+        "throughput_long_ctx": 56.9,
+        "degradation_pct": 18.4
       },
       "scoring": {
-        "score_100": 80,
+        "score_100": 96,
         "ttft_pass": true,
         "throughput_pass": true,
         "json_pass": false,
-        "hallucination_free": false,
+        "hallucination_free": true,
         "recommended": false
       }
     }
