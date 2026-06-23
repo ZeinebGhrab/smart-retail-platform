@@ -155,13 +155,51 @@ SIMPLE_JWT = {
 # Accessible sur /api/docs/ (Swagger UI) et /api/schema/ (OpenAPI JSON)
 # ------------------------------------------------------------
 SPECTACULAR_SETTINGS = {
-    "TITLE": "ShopAnalytics — API Historique Visiteurs",
+    "TITLE": "Anavid Store 360 — API",
     "DESCRIPTION": (
-        "API REST exposant l'historique des visiteurs / données analytics "
-        "issues du fichier shoppingclub_2025_2026.csv (Anavid Smart Retail Platform)."
+        "API REST de la plateforme **Anavid Smart Retail Platform** (ShoppingClub Sfax).\n\n"
+        "## Services disponibles\n\n"
+        "| Service | URL | Description |\n"
+        "|---|---|---|\n"
+        "| **Django API** (ce Swagger) | `http://localhost:8000/api/` | Auth JWT, historique visiteurs, chat IA RAG |\n"
+        "| **Ollama LLM** | `http://localhost:11434` | LLM local — génération et embeddings |\n"
+        "| **Ollama `/api/generate`** | `http://localhost:11434/api/generate` | Génération de texte (llama3.2:3b-instruct-q4_K_M) |\n"
+        "| **Ollama `/api/embeddings`** | `http://localhost:11434/api/embeddings` | Embeddings sémantiques (pipeline RAG) |\n"
+        "| **Modèle ML — XGBoost** | `http://localhost:8001` | Prédiction visiteurs par heure/caméra/profil |\n"
+        "| **ML `/predict`** | `http://localhost:8001/predict?date=YYYY-MM-DD` | Prédictions pour une date donnée |\n"
+        "| **ML `/health`** | `http://localhost:8001/health` | Statut du microservice ML |\n"
+        "| **ML Swagger** | `http://localhost:8001/docs` | Documentation interactive du modèle ML |\n\n"
+        "## Authentification\n\n"
+        "Les endpoints protégés utilisent **JWT Bearer**. "
+        "Obtenez un token via `POST /api/auth/login/`, puis cliquez sur **Authorize** ci-dessus "
+        "et saisissez : `Bearer <votre_token>`.\n\n"
+        "## Communication interne Docker\n\n"
+        "Depuis les conteneurs, remplacer `localhost` par les noms de service Docker :\n"
+        "`django_api` → `ollama:11434` · `django_api` → `visitor_ml_api:8000`"
     ),
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    "CONTACT": {
+        "name": "Anavid Smart Retail Platform",
+    },
+    "EXTERNAL_DOCS": {
+        "description": "Documentation Modèle ML (XGBoost)",
+        "url": "http://localhost:8001/docs",
+    },
+    "SERVERS": [
+        {
+            "url": "http://localhost:8000",
+            "description": "Django API — développement local",
+        },
+        {
+            "url": "http://localhost:8001",
+            "description": "Visitor ML API — XGBoost (microservice)",
+        },
+        {
+            "url": "http://localhost:11434",
+            "description": "Ollama LLM — génération & embeddings",
+        },
+    ],
 }
 
 # ------------------------------------------------------------

@@ -13,11 +13,12 @@ Plateforme d'analyse retail intelligente avec assistant IA RAG, API historique v
 5. [Chat IA — RAG](#5-chat-ia--rag)
 6. [API REST — endpoints](#6-api-rest--endpoints)
 7. [Benchmark LLM](#7-benchmark-llm)
-8. [Structure du projet](#8-structure-du-projet)
-9. [Variables d'environnement](#9-variables-denvironnement)
-10. [Commandes Makefile](#10-commandes-makefile)
-11. [Application mobile (APK Android)](#11-application-mobile-apk-android)
-12. [FAQ](#12-faq)
+8. [Modèle ML — Prédiction visiteurs](#8-modèle-ml--prédiction-visiteurs)
+9. [Structure du projet](#9-structure-du-projet)
+10. [Variables d'environnement](#10-variables-denvironnement)
+11. [Commandes Makefile](#11-commandes-makefile)
+12. [Application mobile (APK Android)](#12-application-mobile-apk-android)
+13. [FAQ](#13-faq)
 
 ---
 
@@ -163,6 +164,7 @@ docker compose up --build django_api
 | `django_api` | 8000 | http://localhost:8000 | API REST + Auth + Chat IA RAG |
 | `ollama` | 11434 | http://localhost:11434 | LLM local Llama 3.2 |
 | `n8n` | 5678 | http://localhost:5678 | Orchestrateur — rapport quotidien (6h00) |
+| `visitor_ml_api` | 8001 | http://localhost:8001 | API XGBoost — prédiction visiteurs par heure/profil |
 | `benchmark` | — | one-shot | Sélection automatique du modèle |
 
 ### Communication interne Docker
@@ -289,12 +291,69 @@ Générés dans `backend/results/` :
 
 ---
 
-## 8. Structure du projet
+## 8. Modèle ML — Prédiction visiteurs
+
+Microservice FastAPI indépendant exposant le modèle **XGBoost** entraîné sur les données du ShoppingClub Sfax.
+Il prédit, pour une date donnée, le nombre de visiteurs par **heure × caméra × genre × tranche d'âge**.
+
+Documentation complète (déploiement, endpoints, mise à jour du modèle) : **[`modele-ML/README.md`](modele-ML/README.md)**
+
+### Lancement
+
+```bash
+# Via Docker Compose (recommandé)
+docker compose up -d visitor_ml_api
+
+# Docker standalone
+cd modele-ML/
+docker build -t visitor-ml-api:latest .
+docker run -d --name visitor_ml_api -p 8001:8000 visitor-ml-api:latest
+```
+
+### Endpoints
+
+| Méthode | URL | Description |
+|---|---|---|
+| `GET` | http://localhost:8001/ | Informations générales |
+| `GET` | http://localhost:8001/health | Statut + vérification modèle chargé |
+| `GET` | http://localhost:8001/predict | Prédictions du jour (date du serveur) |
+| `GET` | http://localhost:8001/predict?date=YYYY-MM-DD | Prédictions pour une date spécifique |
+| `GET` | http://localhost:8001/docs | Documentation Swagger interactive |
+
+### Exemple
+
+```bash
+# Prédiction pour le 1er juillet 2026
+curl "http://localhost:8001/predict?date=2026-07-01"
+```
+
+```json
+{
+  "date": "2026-07-01",
+  "predictions": [
+    {
+      "hour": 7,
+      "camera": "Cam_porte1",
+      "profile": [
+        { "gender": "Female", "age": "18-29", "visits_predicted": 12 },
+        { "gender": "Male",   "age": "30-39", "visits_predicted": 9  }
+      ],
+      "total_visits": 21
+    }
+  ]
+}
+```
+
+> **Communication interne Docker** : les autres conteneurs appellent le service via `http://visitor_ml_api:8000` (pas `localhost`).
+
+---
+
+## 9. Structure du projet
 
 ```
 anavid-smart-retail-platform/
 │
-├── docker-compose.yml               # Orchestration des 5 services
+├── docker-compose.yml               # Orchestration des 6 services
 ├── Makefile                         # Commandes raccourcies (Linux/Mac)
 ├── run.bat                          # Commandes raccourcies (Windows)
 ├── .env                             # Secrets locaux (Gmail SMTP, FCM) — jamais commité
@@ -318,6 +377,13 @@ anavid-smart-retail-platform/
 │       ├── services/                # api.ts, auth.ts, chatBridge.ts (clients HTTP)
 │       ├── theme/                   # variables.css (thème Ionic)
 │       └── types/                   # Types partagés (dashboard.types.ts)
+│
+├── modele-ML/                       # Microservice XGBoost — prédiction visiteurs (port 8001)
+│   ├── Dockerfile
+│   ├── README.md                    # Déploiement, endpoints, mise à jour du modèle
+│   ├── main.py                      # API FastAPI (predict, health)
+│   ├── requirements.txt
+│   └── xgboost_visitor_mvp.pkl      # Modèle sérialisé (joblib) — non versionné
 │
 └── backend/
     ├── README.md
@@ -364,7 +430,7 @@ anavid-smart-retail-platform/
 
 ---
 
-## 9. Variables d'environnement
+## 10. Variables d'environnement
 
 ### Fichier `.env` (racine du projet) — secrets, **jamais commité**
 
@@ -440,7 +506,7 @@ docker compose up django_api   # redémarrage suffit, pas de rebuild
 
 ---
 
-## 10. Commandes Makefile
+## 11. Commandes Makefile
 
 ```bash
 make up            # Ollama + benchmark + django_api + frontend
@@ -473,7 +539,7 @@ run.bat clean-all
 
 ---
 
-## 11. Application mobile (APK Android)
+## 12. Application mobile (APK Android)
 
 Le frontend peut être packagé en application Android native via **Capacitor**, avec notifications push **Firebase Cloud Messaging (FCM)**.
 
@@ -506,7 +572,7 @@ Détail complet de récupération de chaque clé : [`frontend/README_APK_Android
 
 ---
 
-## 12. FAQ
+## 13. FAQ
 
 **Le chat répond "Ollama non joignable"**
 
