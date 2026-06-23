@@ -35,6 +35,7 @@ dist/
 *.local
 frontend/public
 frontend/.env
+frontend/android/app/dev
 .env
 *.env
 
