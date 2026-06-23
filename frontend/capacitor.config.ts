@@ -24,16 +24,10 @@ const config: CapacitorConfig = {
   appId: 'com.anavid.shopanalytics',
   appName: 'anavidApp',
   webDir: 'dist',
-  // Pointe vers le backend de déploiement (Azure VM).
-  // En développement local, commenter server.url et utiliser
-  // VITE_API_URL=http://localhost:8000/api dans frontend/.env
   server: {
     androidScheme: 'http',
-    // URL du serveur de déploiement — l'APK chargera le bundle Vite
-    // depuis ce serveur au lieu du contenu embarqué local.
-    // Retirer cette ligne pour générer un APK standalone (bundle embarqué).
-    // url: 'http://40.76.124.14:5173',
-    cleartext: true,   // autorise HTTP (non-TLS) vers 40.76.124.14
+    url: 'http://40.76.124.14:5173',  
+    cleartext: true,
   },
   android: {
     allowMixedContent: true,
