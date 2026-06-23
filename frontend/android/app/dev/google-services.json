@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "796063232429",
+    "project_id": "shop-analytics-anavid",
+    "storage_bucket": "shop-analytics-anavid.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:796063232429:android:fb5b6419fea9bc6440b124",
+        "android_client_info": {
+          "package_name": "com.anavid.shopanalytics"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDJbhwFHo2o8QZqdg0eUFMgEc9CkDPNLeo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
