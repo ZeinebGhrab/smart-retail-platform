@@ -4,19 +4,34 @@
 // ============================================================
 
 import axios from 'axios';
-
+import { getAccessToken } from './auth'; 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
+// export const saveFCMToken = async (token: string): Promise<void> => {
+//   try {
+//     const response = await axios.post(`${API_BASE_URL}/fcm-token/`, { token });
+//     console.log('Token FCM sauvegardé:', response.data);
+//   } catch (error) {
+//     console.error('Erreur lors de la sauvegarde du token FCM:', error);
+//     throw error;
+//   }
+// };
 export const saveFCMToken = async (token: string): Promise<void> => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/fcm-token/`, { token });
+    const accessToken = getAccessToken();
+    const response = await axios.post(
+      `${API_BASE_URL}/fcm-token/`,
+      { token },
+      {
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+      }
+    );
     console.log('Token FCM sauvegardé:', response.data);
   } catch (error) {
     console.error('Erreur lors de la sauvegarde du token FCM:', error);
     throw error;
   }
 };
-
 export const sendFCMNotification = async (
   title: string,
   body: string,

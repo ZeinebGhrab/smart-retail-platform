@@ -1,19 +1,19 @@
 # ============================================================
-# django_api/Dockerfile — image avec support PostgreSQL
+# django_api/Dockerfile — image avec support mysql
 # ============================================================
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Installer les dépendances système pour PostgreSQL
+# Installer les dépendances système pour mysql
 RUN apt-get update && apt-get install -y \
-    postgresql-client \
+    gcc \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 # Installer les dépendances Python
 COPY django_api/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir psycopg2-binary
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY django_api/ .
 

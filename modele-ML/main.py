@@ -1,13 +1,36 @@
 """
-Visitor Profile Prediction API
+Visitor Daily Prediction API
 --------------------------------
-Expose le modèle XGBoost MVP via une API REST FastAPI.
+Expose le modèle LightGBM (niveau journalier) via une API REST FastAPI.
 
 Endpoint principal :
-    GET /predict?date=YYYY-MM-DD
+    POST /predict
+    Body JSON : {
+        "date": "YYYY-MM-DD",
+        "temperature": 32.0,        # temp_max_c (°C) — depuis Open-Meteo
+        "wind_speed": 18.0,         # wind_kmh — depuis Open-Meteo
+        "type_jour": "normal"       # "normal" | "ferie" — depuis Nager.Date
+    }
 
-Retourne, pour chaque heure d'ouverture (7h-23h) et chaque caméra,
-le nombre de visiteurs prédit par combinaison (genre, âge).
+Retourne :
+    {
+        "date": "2026-06-25",
+        "predictions": [
+            {
+                "hour": 10,
+                "camera": "Cam_porte1",
+                "profile": [...],
+                "total_visits": 42
+            },
+            ...
+        ]
+    }
+
+Architecture :
+  - LightGBM (lightgbm_shoppingclub.pkl) prédit le total visiteurs/jour
+    à partir des features météo + calendrier.
+  - La répartition par heure/caméra/profil est calculée par des poids
+    statistiques (distribution historique) appliqués au total journalier.
 """
 
 from datetime import date as date_type
@@ -16,42 +39,64 @@ from typing import Optional
 import joblib
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 # ---------------------------------------------------------------------------
-# Configuration / constantes (doivent matcher l'entraînement du modèle)
+# Configuration
 # ---------------------------------------------------------------------------
 
-MODEL_PATH = "xgboost_visitor_mvp.pkl"
+MODEL_PATH = "lightgbm_shoppingclub.pkl"
 
-OPENING_HOURS = list(range(7, 24))  # 7h à 23h inclus
-CAMERAS = ["Cam_porte1", "Cam_porte2"]
-GENDERS = ["Female", "Male"]
-AGES = ["0-9", "10-17", "18-29", "30-39", "40-49", "60-100"]
+OPENING_HOURS = list(range(7, 24))   # 7h à 23h inclus
+CAMERAS       = ["Cam_porte1", "Cam_porte2"]
+GENDERS       = ["Female", "Male"]
+AGES          = ["0-9", "10-17", "18-29", "30-39", "40-49", "60-100"]
 
-CAMERA_ENC = {"Cam_porte1": 0, "Cam_porte2": 1}
-GENDER_ENC = {"Female": 0, "Male": 1}
-AGE_ENC = {"0-9": 0, "10-17": 1, "18-29": 2, "30-39": 3, "40-49": 4, "60-100": 5}
-
-DOW_COLUMNS = [
-    "dow_Friday", "dow_Monday", "dow_Saturday",
-    "dow_Sunday", "dow_Thursday", "dow_Tuesday", "dow_Wednesday",
+# Features attendues par le modèle LightGBM (ordre identique à l'entraînement)
+LGBM_FEATURES = [
+    "day_of_week", "is_weekend", "month", "week_of_year", "quarter",
+    "is_pre_holiday", "is_post_holiday", "is_school_holiday",
+    "pre_holiday_name_enc",
+    "days_to_next_holiday", "days_since_last_holiday",
+    "temp_max_c", "temp_min_c", "temp_range_c",
+    "precipitation_mm", "wind_kmh", "humidity_pct",
+    "weather_comfort_score", "is_rainy", "heat_stress",
+    "weather_category_enc",
 ]
 
-FEATURE_COLUMNS = [
-    "camera_enc", "gender_enc", "age_enc",
-    "hour", "month_num", "day_of_week_num", "is_weekend",
-] + DOW_COLUMNS
+# Distribution horaire (poids relatifs, somme = 1) — basée sur la moyenne
+# statistique shoppingclub. Remplacer par des valeurs réelles si disponibles.
+HOUR_WEIGHTS = {
+     7: 0.020,  8: 0.035,  9: 0.055, 10: 0.075, 11: 0.075,
+    12: 0.070, 13: 0.060, 14: 0.065, 15: 0.070, 16: 0.075,
+    17: 0.080, 18: 0.080, 19: 0.065, 20: 0.050, 21: 0.035,
+    22: 0.025, 23: 0.015,
+}
+
+# Poids caméras (répartition portes)
+CAMERA_WEIGHTS = {"Cam_porte1": 0.55, "Cam_porte2": 0.45}
+
+# Poids profils (gender × age) — distribution moyenne historique
+PROFILE_WEIGHTS = {
+    ("Female", "18-29"): 0.18, ("Female", "30-39"): 0.14, ("Female", "40-49"): 0.10,
+    ("Female", "10-17"): 0.07, ("Female", "60-100"): 0.05, ("Female", "0-9"):   0.03,
+    ("Male",   "18-29"): 0.14, ("Male",   "30-39"): 0.12, ("Male",   "40-49"): 0.09,
+    ("Male",   "10-17"): 0.06, ("Male",   "60-100"): 0.06, ("Male",   "0-9"):   0.02,
+}
+# Normalisation de sécurité
+_pw_sum = sum(PROFILE_WEIGHTS.values())
+PROFILE_WEIGHTS = {k: v / _pw_sum for k, v in PROFILE_WEIGHTS.items()}
+
 
 # ---------------------------------------------------------------------------
-# Chargement du modèle (une seule fois, au démarrage de l'API)
+# App FastAPI
 # ---------------------------------------------------------------------------
 
 app = FastAPI(
-    title="Visitor Profile Prediction API",
-    description="Prédiction du nombre de visiteurs par caméra, heure, genre et tranche d'âge.",
-    version="1.0.0",
+    title="Visitor Daily Prediction API (LightGBM)",
+    description="Prédiction journalière du nombre de visiteurs avec features météo + calendrier.",
+    version="2.0.0",
 )
 
 try:
@@ -61,8 +106,15 @@ except FileNotFoundError:
 
 
 # ---------------------------------------------------------------------------
-# Schémas de réponse (Pydantic) — définissent le format JSON retourné
+# Schémas Pydantic
 # ---------------------------------------------------------------------------
+
+class PredictRequest(BaseModel):
+    date: str
+    temperature: Optional[float] = None   # temp_max_c (°C)
+    wind_speed: Optional[float]  = None   # wind_kmh
+    type_jour: Optional[str]     = "normal"  # "normal" | "ferie"
+
 
 class ProfileEntry(BaseModel):
     gender: str
@@ -83,71 +135,152 @@ class PredictionResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Fonctions utilitaires
+# Helpers météo
 # ---------------------------------------------------------------------------
 
-def build_feature_rows(target_date: date_type) -> pd.DataFrame:
+def assign_weather_category_enc(temp_max: float, precip: float) -> int:
     """
-    Construit toutes les lignes de features nécessaires pour une date donnée :
-    chaque heure d'ouverture x chaque caméra x chaque combinaison (genre, âge).
+    Encode la catégorie météo de manière cohérente avec l'entraînement :
+    cold=0, hot=1, mild=2, rainy=3, stormy=4, very_hot=5
+    (ordre alphabétique du LabelEncoder sklearn).
     """
-    dow_name = target_date.strftime("%A")  # ex: "Saturday"
-    day_of_week_num = target_date.weekday()
-    is_weekend = 1 if day_of_week_num >= 5 else 0
-    month_num = target_date.month
+    if precip > 5:
+        return 4   # stormy
+    elif precip > 0.5:
+        return 3   # rainy
+    elif temp_max > 38:
+        return 5   # very_hot
+    elif temp_max > 30:
+        return 1   # hot
+    elif temp_max < 15:
+        return 0   # cold
+    else:
+        return 2   # mild
 
-    rows = []
+
+def compute_weather_features(temperature: float, wind_speed: float) -> dict:
+    """
+    Dérive toutes les features météo attendues par le modèle
+    à partir des deux champs Open-Meteo (temp actuelle + vent).
+    """
+    # Approximations raisonnables pour temp_min / temp_range
+    temp_max   = temperature
+    temp_min   = max(temperature - 8, 5)    # Δ typique Sfax ≈ 8°C
+    temp_range = temp_max - temp_min
+
+    precip     = 0.0   # Open-Meteo current ne fournit pas les précipitations
+    humidity   = max(30, min(85, 75 - temperature * 0.5))  # estimation
+    is_rainy   = 0
+    heat_stress = 1 if temperature > 35 else 0
+
+    # comfort = 100 − |temp_max − 22| * 2 − wind * 0.5 − precip * 5
+    comfort    = max(0, 100 - abs(temp_max - 22) * 2 - wind_speed * 0.5)
+
+    weather_cat_enc = assign_weather_category_enc(temp_max, precip)
+
+    return {
+        "temp_max_c":            temp_max,
+        "temp_min_c":            temp_min,
+        "temp_range_c":          temp_range,
+        "precipitation_mm":      precip,
+        "wind_kmh":              wind_speed,
+        "humidity_pct":          humidity,
+        "is_rainy":              is_rainy,
+        "heat_stress":           heat_stress,
+        "weather_comfort_score": comfort,
+        "weather_category_enc":  weather_cat_enc,
+    }
+
+
+def compute_calendar_features(target_date: date_type, type_jour: str) -> dict:
+    """
+    Dérive les features calendaires depuis la date + type_jour (Nager.Date).
+    """
+    dow          = target_date.weekday()   # 0=Mon … 6=Sun
+    is_weekend   = 1 if dow >= 5 else 0
+    month        = target_date.month
+    week_of_year = target_date.isocalendar()[1]
+    quarter      = (month - 1) // 3 + 1
+
+    is_ferie     = 1 if type_jour == "ferie" else 0
+
+    # Heuristiques simples pour les flags annexes
+    is_pre_holiday       = 0   # Non connu à l'avance via Nager
+    is_post_holiday      = 0
+    is_school_holiday    = 0
+    pre_holiday_name_enc = 0   # "none" → 0 (LabelEncoder)
+    days_to_next_holiday = 7   # valeur neutre
+    days_since_last_holiday = 7
+
+    return {
+        "day_of_week":           dow,
+        "is_weekend":            is_weekend,
+        "month":                 month,
+        "week_of_year":          week_of_year,
+        "quarter":               quarter,
+        "is_pre_holiday":        is_pre_holiday,
+        "is_post_holiday":       is_post_holiday,
+        "is_school_holiday":     is_school_holiday,
+        "pre_holiday_name_enc":  pre_holiday_name_enc,
+        "days_to_next_holiday":  days_to_next_holiday,
+        "days_since_last_holiday": days_since_last_holiday,
+        # Pas dans LGBM_FEATURES mais conservé pour la répartition profils
+        "is_ferie":              is_ferie,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Prédiction
+# ---------------------------------------------------------------------------
+
+def distribute_to_hourly(total_daily: int, target_date: date_type) -> list[HourPrediction]:
+    """
+    Redistribue le total journalier prédit par LightGBM
+    sur les heures, caméras et profils via des poids statistiques.
+    """
+    predictions = []
     for hour in OPENING_HOURS:
+        hour_total = total_daily * HOUR_WEIGHTS.get(hour, 1 / len(OPENING_HOURS))
         for camera in CAMERAS:
+            cam_total = hour_total * CAMERA_WEIGHTS[camera]
+            profile_entries = []
             for gender in GENDERS:
                 for age in AGES:
-                    row = {
-                        "hour": hour,
-                        "camera": camera,
-                        "gender": gender,
-                        "age": age,
-                        "camera_enc": CAMERA_ENC[camera],
-                        "gender_enc": GENDER_ENC[gender],
-                        "age_enc": AGE_ENC[age],
-                        "month_num": month_num,
-                        "day_of_week_num": day_of_week_num,
-                        "is_weekend": is_weekend,
-                    }
-                    for col in DOW_COLUMNS:
-                        row[col] = 1 if col == f"dow_{dow_name}" else 0
-                    rows.append(row)
-
-    return pd.DataFrame(rows)
-
-
-def run_predictions(target_date: date_type) -> PredictionResponse:
-    """Calcule les prédictions pour toutes les heures/caméras de la date donnée."""
-    df_input = build_feature_rows(target_date)
-
-    raw_preds = model.predict(df_input[FEATURE_COLUMNS])
-    df_input["visits_predicted"] = np.maximum(raw_preds, 0).round().astype(int)
-
-    predictions = []
-    for (hour, camera), group in df_input.groupby(["hour", "camera"], sort=True):
-        profile = [
-            ProfileEntry(
-                gender=r["gender"],
-                age=r["age"],
-                visits_predicted=int(r["visits_predicted"]),
-            )
-            for _, r in group.iterrows()
-        ]
-        predictions.append(
-            HourPrediction(
-                hour=int(hour),
+                    w = PROFILE_WEIGHTS.get((gender, age), 0.01)
+                    visits = max(0, round(cam_total * w))
+                    profile_entries.append(ProfileEntry(
+                        gender=gender,
+                        age=age,
+                        visits_predicted=visits,
+                    ))
+            predictions.append(HourPrediction(
+                hour=hour,
                 camera=camera,
-                profile=profile,
-                total_visits=int(group["visits_predicted"].sum()),
-            )
-        )
+                profile=profile_entries,
+                total_visits=int(round(cam_total)),
+            ))
 
-    # Tri par heure puis caméra pour un ordre de réponse stable
     predictions.sort(key=lambda p: (p.hour, p.camera))
+    return predictions
+
+
+def run_daily_prediction(
+    target_date: date_type,
+    temperature: float,
+    wind_speed: float,
+    type_jour: str,
+) -> PredictionResponse:
+    """Prédit le total journalier avec LightGBM puis redistribue par heure/caméra/profil."""
+    weather  = compute_weather_features(temperature, wind_speed)
+    calendar = compute_calendar_features(target_date, type_jour)
+
+    row = {**weather, **calendar}
+    df_input = pd.DataFrame([row])[LGBM_FEATURES]
+
+    raw_pred = model.predict(df_input)[0]
+    total_daily = max(0, int(round(raw_pred)))
+
+    predictions = distribute_to_hourly(total_daily, target_date)
 
     return PredictionResponse(date=target_date.isoformat(), predictions=predictions)
 
@@ -159,9 +292,9 @@ def run_predictions(target_date: date_type) -> PredictionResponse:
 @app.get("/", tags=["Info"])
 def root():
     return {
-        "message": "Visitor Profile Prediction API",
+        "message": "Visitor Daily Prediction API (LightGBM)",
         "docs": "/docs",
-        "predict_endpoint": "/predict?date=YYYY-MM-DD (optionnel, défaut = aujourd'hui)",
+        "predict_endpoint": "POST /predict — body: {date, temperature, wind_speed, type_jour}",
     }
 
 
@@ -170,28 +303,26 @@ def health():
     return {"status": "ok", "model_loaded": model is not None}
 
 
-@app.get("/predict", response_model=PredictionResponse, tags=["Prediction"])
-def predict(
-    date: Optional[str] = Query(
-        default=None,
-        description="Date au format YYYY-MM-DD. Si omis, la date du jour est utilisée.",
-    )
-):
+@app.post("/predict", response_model=PredictionResponse, tags=["Prediction"])
+def predict(req: PredictRequest):
     if model is None:
         raise HTTPException(
             status_code=503,
             detail=f"Modèle non chargé. Vérifiez que '{MODEL_PATH}' existe.",
         )
 
-    if date is None:
-        target_date = date_type.today()
-    else:
-        try:
-            target_date = pd.Timestamp(date).date()
-        except (ValueError, TypeError):
-            raise HTTPException(
-                status_code=400,
-                detail="Format de date invalide. Utilisez YYYY-MM-DD (ex: 2026-06-20).",
-            )
+    # Validation date
+    try:
+        target_date = pd.Timestamp(req.date).date()
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=400,
+            detail="Format de date invalide. Utilisez YYYY-MM-DD (ex: 2026-06-25).",
+        )
 
-    return run_predictions(target_date)
+    # Valeurs par défaut si météo absente (fallback Sfax été)
+    temperature = req.temperature if req.temperature is not None else 32.0
+    wind_speed  = req.wind_speed  if req.wind_speed  is not None else 15.0
+    type_jour   = req.type_jour   if req.type_jour   is not None else "normal"
+
+    return run_daily_prediction(target_date, temperature, wind_speed, type_jour)

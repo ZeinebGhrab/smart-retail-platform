@@ -15,7 +15,7 @@ urlpatterns = [
     path("history/summary/",           views.summary,             name="history-summary"),
     path("history/cameras/",           views.cameras,             name="history-cameras"),
 
-    # ── Notifications N8N (PostgreSQL BD) ────────────────────
+    # ── Notifications N8N (mysql BD) ────────────────────
     path("notifications/latest/",           views.latest_notification,        name="notifications-latest"),
     path("notifications/history/",          views.notifications_history,      name="notifications-history"),
     path("notifications/unread-count/",     views.unread_notifications_count, name="notifications-unread-count"),
@@ -30,4 +30,10 @@ urlpatterns = [
 
     # ── Chat RAG ─────────────────────────────────────────────
     path("chat/",                      chat,                      name="chat-rag"),
+    # ── Vidéos de vol ─────────────────────────────────────────────
+    path("videos/spaces/",                      views.list_spaces,             name="list-spaces"),
+    path("videos/all/", views.videos_all, name="videos-all"),
+    path("videos/space/<int:space_id>/",        views.videos_by_space,         name="videos-by-space"),
+    path("videos/organisation/<int:org_id>/",   views.videos_by_organisation,  name="videos-by-organisation"),
+    path("videos/<int:video_id>/qualify/",      views.qualify_video,           name="qualify-video"),
 ]

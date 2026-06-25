@@ -2,8 +2,8 @@
 REM ============================================================
 REM run.bat — ShopAnalytics (Windows)
 REM Usage : run.bat [commande]
-REM   run.bat           → Lance tout : Postgres + Ollama + benchmark + API + Frontend + n8n
-REM   run.bat postgres  → Lance uniquement Postgres
+REM   run.bat           → Lance tout : MySQL + Ollama + benchmark + API + Frontend + n8n
+REM   run.bat mysql     → Lance uniquement MySQL
 REM   run.bat ollama    → Lance uniquement Ollama
 REM   run.bat bench     → Lance uniquement le benchmark
 REM   run.bat django    → Lance uniquement l'API Django (http://localhost:8000)
@@ -21,7 +21,7 @@ SET CMD=%1
 IF "%CMD%"=="" SET CMD=all
 
 IF "%CMD%"=="all"      GOTO ALL
-IF "%CMD%"=="postgres" GOTO POSTGRES
+IF "%CMD%"=="mysql"    GOTO MYSQL
 IF "%CMD%"=="ollama"   GOTO OLLAMA
 IF "%CMD%"=="bench"    GOTO BENCH
 IF "%CMD%"=="django"   GOTO DJANGO
@@ -35,10 +35,10 @@ IF "%CMD%"=="clean"    GOTO CLEAN
 IF "%CMD%"=="clean-all" GOTO CLEAN_ALL
 
 echo [ERREUR] Commande inconnue : %CMD%
-echo Usage : run.bat [all^|postgres^|ollama^|bench^|django^|api^|frontend^|n8n^|logs^|status^|down^|clean^|clean-all]
+echo Usage : run.bat [all^|mysql^|ollama^|bench^|django^|api^|frontend^|n8n^|logs^|status^|down^|clean^|clean-all]
 EXIT /B 1
 
-REM ── ALL : Postgres + Ollama + benchmark + API + Frontend + n8n ─
+REM ── ALL : MySQL + Ollama + benchmark + API + Frontend + n8n ─
 :ALL
 echo ==============================================
 echo  ShopAnalytics — Demarrage complet
@@ -49,17 +49,17 @@ echo  Ollama    : http://localhost:11434
 echo  n8n       : http://localhost:5678
 echo ==============================================
 
-docker compose up -d postgres ollama
-IF ERRORLEVEL 1 (echo [ERREUR] Impossible de demarrer Postgres/Ollama. & EXIT /B 1)
+docker compose up -d mysql ollama
+IF ERRORLEVEL 1 (echo [ERREUR] Impossible de demarrer MySQL/Ollama. & EXIT /B 1)
 
-echo Attente Postgres pret...
+echo Attente MySQL pret...
 :WAIT_PG
-docker compose exec -T postgres pg_isready -U postgres >NUL 2>&1
+docker compose exec -T mysql mysqladmin ping -h localhost -u root -prootpassword >NUL 2>&1
 IF ERRORLEVEL 1 (
     timeout /t 2 /nobreak >NUL
     GOTO WAIT_PG
 )
-echo Postgres pret !
+echo MySQL pret !
 
 echo Attente Ollama pret...
 :WAIT_ALL
@@ -83,9 +83,9 @@ echo  n8n       : http://localhost:5678
 echo ==============================================
 GOTO END
 
-REM ── POSTGRES ────────────────────────────────────────────────
-:POSTGRES
-docker compose up -d postgres
+REM ── MYSQL ───────────────────────────────────────────────────
+:MYSQL
+docker compose up -d mysql
 GOTO END
 
 REM ── OLLAMA ──────────────────────────────────────────────────

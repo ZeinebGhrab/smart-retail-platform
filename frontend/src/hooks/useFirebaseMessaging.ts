@@ -18,7 +18,7 @@ import { FirebaseMessaging } from '@capacitor-firebase/messaging';
 import { initializeApp, getApps } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { saveFCMToken } from '../services/fcm';
-
+import { getAccessToken } from '../services/auth';
 const firebaseConfig = {
   apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain:        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -109,22 +109,44 @@ async function registerWeb(): Promise<void> {
   });
 }
 
+// export const useFirebaseMessaging = () => {
+//   useEffect(() => {
+//     const initializeMessaging = async () => {
+//       try {
+//         if (Capacitor.isNativePlatform()) {
+//           await registerNative();
+//         } else {
+//           await registerWeb();
+//         }
+//       } catch (error) {
+//         console.error('Erreur Firebase Messaging:', error);
+//       }
+//     };
+
+//     initializeMessaging();
+//   }, []);
+// };
 export const useFirebaseMessaging = () => {
-  useEffect(() => {
-    const initializeMessaging = async () => {
-      try {
-        if (Capacitor.isNativePlatform()) {
-          await registerNative();
-        } else {
-          await registerWeb();
-        }
-      } catch (error) {
-        console.error('Erreur Firebase Messaging:', error);
+  const initializeMessaging = async () => {
+    try {
+      if (Capacitor.isNativePlatform()) {
+        await registerNative();
+      } else {
+        await registerWeb();
       }
-    };
+    } catch (error) {
+      console.error('Erreur Firebase Messaging:', error);
+    }
+  };
 
-    initializeMessaging();
+  // Auto-run au démarrage UNIQUEMENT si déjà connecté
+  useEffect(() => {
+    
+    if (getAccessToken()) {
+      initializeMessaging();
+    }
   }, []);
-};
 
+  return { initializeMessaging }; // ← exposer pour Login.tsx
+};
 export default useFirebaseMessaging;

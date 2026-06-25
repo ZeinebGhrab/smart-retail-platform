@@ -17,6 +17,8 @@ import Register from './pages/Register';
 import PrivateRoute from './components/PrivateRoute';
 import { isAuthenticated } from './services/auth';
 import { useFirebaseMessaging } from './hooks/useFirebaseMessaging';
+import Alerts from './pages/Alerts';
+import AlertDetail from './pages/AlertDetail';
 
 setupIonicReact();
 
@@ -37,7 +39,8 @@ const App: React.FC = () => {
           <PrivateRoute exact path="/dashboard"   component={Dashboard}  />
           <PrivateRoute exact path="/chat"        component={ChatIA}     />
           <PrivateRoute exact path="/predictions" component={Historique} />
-
+          <PrivateRoute exact path="/alerts" component={Alerts} />
+          <PrivateRoute exact path="/alerts/:id" component={AlertDetail} />
           {/* Connecté → dashboard, sinon → login */}
           <Redirect exact from="/" to={isAuthenticated() ? '/dashboard' : '/login'} />
         </IonRouterOutlet>

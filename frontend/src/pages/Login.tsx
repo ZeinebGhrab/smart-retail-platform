@@ -3,7 +3,7 @@ import { IonPage, IonContent } from '@ionic/react';
 import { useHistory } from 'react-router-dom';
 import { login, AuthApiError, requestPasswordReset, verifyResetCode, confirmPasswordReset } from '../services/auth';
 import './Auth.css';
-
+import { useFirebaseMessaging } from '../hooks/useFirebaseMessaging';
 // ─── Inline SVG icons ────────────────────────────────────────
 const IconStore = () => (
   <svg width="32" height="32" viewBox="0 0 24 24" fill="none"
@@ -100,21 +100,37 @@ const Login: React.FC = () => {
     setErrors(e);
     return !e.email && !e.password;
   };
-  const handleSubmit = async (ev: React.FormEvent) => {
-    ev.preventDefault();
-    setGlobalErr('');
-    if (!validate()) return;
-    setLoading(true);
-    try {
-      await login(email, password, remember);
-      history.replace('/dashboard');
-    } catch (err) {
-      setGlobalErr(err instanceof AuthApiError ? err.message : 'Connexion impossible. Réessayez dans un moment.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // const handleSubmit = async (ev: React.FormEvent) => {
+  //   ev.preventDefault();
+  //   setGlobalErr('');
+  //   if (!validate()) return;
+  //   setLoading(true);
+  //   try {
+  //     await login(email, password, remember);
+  //     history.replace('/dashboard');
+  //   } catch (err) {
+  //     setGlobalErr(err instanceof AuthApiError ? err.message : 'Connexion impossible. Réessayez dans un moment.');
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+const { initializeMessaging } = useFirebaseMessaging();
 
+const handleSubmit = async (ev: React.FormEvent) => {
+  ev.preventDefault();
+  setGlobalErr('');
+  if (!validate()) return;
+  setLoading(true);
+  try {
+    await login(email, password, remember);
+    await initializeMessaging(); // ← déclenche FCM après login (JWT disponible)
+    history.replace('/dashboard');
+  } catch (err) {
+    setGlobalErr(err instanceof AuthApiError ? err.message : 'Connexion impossible. Réessayez dans un moment.');
+  } finally {
+    setLoading(false);
+  }
+};
   // ── Open / reset forgot flow
   const openForgot = () => {
     setFpEmail(email); // pré-remplir avec l'email de la form login si déjà saisi

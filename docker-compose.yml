@@ -4,7 +4,7 @@
 # Structure :
 #   frontend/   → App Ionic React (Vite)
 #   backend/    → API Django REST + RAG Ollama
-#   postgres/   → Base de données PostgreSQL
+#   mysql/   → Base de données mysql
 #
 # Commandes rapides :
 #   docker compose up frontend          → front seul (dev)
@@ -14,31 +14,49 @@
 # ============================================================
 
 services:
-  # ── Database PostgreSQL ──────────────────────────────────────────────────────
-  postgres:
-    image: postgres:15-alpine
-    container_name: shopanalytics-postgres
+  # ── Database MySQL ───────────────────────────────────────────────────────────
+  mysql:
+   image: mysql:8.0
+   container_name: shop-anavid-int-mysql
+   restart: unless-stopped
+   environment:
+     MYSQL_DATABASE: shop-anavid-int
+     MYSQL_USER: shopuser
+     MYSQL_PASSWORD: shoppassword
+     MYSQL_ROOT_PASSWORD: rootpassword
+   ports:
+     - "3306:3306"
+   volumes:
+     - mysql_data:/var/lib/mysql
+   healthcheck:
+     test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-ushopuser", "-pshoppassword"]
+     interval: 10s
+     timeout: 5s
+     retries: 5
+   networks:
+     - shop-anavid-int_net
+
+  # ── phpMyAdmin — Interface web MySQL ─────────────────────────────────────────
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: shop-anavid-int-phpmyadmin
     restart: unless-stopped
-    environment:
-      - POSTGRES_DB=shopanalytics
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+    depends_on:
+      mysql:
+        condition: service_healthy
     ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - "8080:80"
+    environment:
+      - PMA_HOST=mysql
+      - PMA_PORT=3306
+      - MYSQL_ROOT_PASSWORD=rootpassword
     networks:
-      - shopanalytics_net
+      - shop-anavid-int_net
 
   # ── LLM local ────────────────────────────────────────────────────────────────
   ollama:
     image: ollama/ollama:0.6.8
-    container_name: shopanalytics-ollama
+    container_name: shop-anavid-int-ollama
     restart: unless-stopped
     ports:
       - "11434:11434"
@@ -60,12 +78,12 @@ services:
         wait
       "
     #deploy:
-      #resources:
-        #reservations:
-          #devices:
-            #- driver: nvidia
-              #count: all
-              #capabilities: [gpu]
+    #resources:
+    #reservations:
+    #devices:
+    #- driver: nvidia
+    #count: all
+    #capabilities: [gpu]
     healthcheck:
       test: ["CMD-SHELL", "ollama list || exit 1"]
       interval: 10s
@@ -73,12 +91,12 @@ services:
       retries: 5
       start_period: 30s
     networks:
-      - shopanalytics_net
+      - shop-anavid-int_net
 
   # ── Benchmark one-shot ───────────────────────────────────────────────────────
   benchmark:
     image: python:3.11-slim
-    container_name: shopanalytics-benchmark
+    container_name: shop-anavid-int-benchmark
     depends_on:
       ollama:
         condition: service_healthy
@@ -98,16 +116,16 @@ services:
       "
     restart: "no"
     networks:
-      - shopanalytics_net
+      - shop-anavid-int_net
 
   # ── Backend Django — API REST + RAG ─────────────────────────────────────────
   django_api:
     build:
       context: ./backend
       dockerfile: django_api/Dockerfile
-    container_name: shopanalytics-django-api
+    container_name: shop-anavid-int-django-api
     depends_on:
-      postgres:
+      mysql:
         condition: service_healthy
       ollama:
         condition: service_healthy
@@ -121,12 +139,12 @@ services:
       - ./backend/results:/app/results
     environment:
       - DJANGO_DEBUG=true
-      - DB_ENGINE=postgresql
-      - DB_NAME=shopanalytics
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - DB_HOST=postgres
-      - DB_PORT=5432
+      - DB_ENGINE=mysql
+      - DB_NAME=shop-anavid-int
+      - DB_USER=shopuser
+      - DB_PASSWORD=shoppassword
+      - DB_HOST=mysql
+      - DB_PORT=3306
       - VISITOR_DATA_CSV=/app/data/shoppingclub_2025_2026.csv
       - OLLAMA_HOST=http://ollama:11434
       - OLLAMA_MODEL=llama3.2:3b-instruct-q4_K_M
@@ -155,16 +173,17 @@ services:
       start_period: 15s
     restart: unless-stopped
     networks:
-      shopanalytics_net:
+      shop-anavid-int_net:
         aliases:
-          - shopanalytics-django-api # accepte l'ancien hostname n8n
+          - shop-anavid-int-django-api  # ancien alias existant
+          - django-api                  # ✅ alias RFC-valide pour n8n (sans underscore)
 
   # ── ML Model API — Visitor Profile Prediction ───────────────────────────────
   visitor_ml_api:
     build:
       context: ./modele-ML
       dockerfile: Dockerfile
-    container_name: shopanalytics-visitor-ml-api
+    container_name: shop-anavid-int-visitor-ml-api
     ports:
       - "8001:8000"
     volumes:
@@ -172,20 +191,26 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request as u; u.urlopen('http://localhost:8000/health', timeout=3)\" || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          'python -c "import urllib.request as u; u.urlopen(''http://localhost:8000/health'', timeout=3)" || exit 1',
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 15s
     restart: unless-stopped
     networks:
-      - shopanalytics_net
+      shop-anavid-int_net:
+        aliases:
+          - visitor-ml-api              # ✅ alias RFC-valide pour n8n (sans underscore)
 
   # ── Frontend Ionic React — dev (hot-reload) ──────────────────────────────────
   frontend:
     build:
       context: ./frontend
-    container_name: shopanalytics-anavidapp
+    container_name: shop-anavid-int-anavidapp
     ports:
       - "5173:5173"
     volumes:
@@ -208,15 +233,15 @@ services:
       - VITE_FIREBASE_VAPID_KEY=${VITE_FIREBASE_VAPID_KEY}
     restart: unless-stopped
     networks:
-      - shopanalytics_net
+      - shop-anavid-int_net
 
   # ── Orchestrateur de workflows — N8N ─────────────────────────────────────────
   n8n:
     image: n8nio/n8n:latest
-    container_name: shopanalytics-n8n
+    container_name: shop-anavid-int-n8n
     restart: unless-stopped
     depends_on:
-      postgres:
+      mysql:
         condition: service_healthy
       ollama:
         condition: service_healthy
@@ -228,7 +253,7 @@ services:
       - N8N_HOST=0.0.0.0
       - N8N_PORT=5678
       - N8N_PROTOCOL=http
-      - WEBHOOK_URL=http://shopanalytics-n8n:5678/
+      - WEBHOOK_URL=http://shop-anavid-int-n8n:5678/
       - GENERIC_TIMEZONE=Europe/Paris
       - N8N_SECURE_COOKIE=false
       - N8N_DIAGNOSTICS_ENABLED=false
@@ -240,21 +265,21 @@ services:
       - N8N_PERSONALIZATION_ENABLED=false
     volumes:
       - n8n_data:/home/node/.n8n
-      - ./backend/n8n/workflows:/workflows
+      - ./n8n/workflows:/workflows
     networks:
-      - shopanalytics_net
+      - shop-anavid-int_net
 
 volumes:
-  postgres_data:
-    name: shopanalytics_postgres_data
+  mysql_data:
+    name: shop-anavid-int_mysql_data
   ollama_models:
-    name: shopanalytics_ollama_models
+    name: shop-anavid-int_ollama_models
   frontend_node_modules:
-    name: shopanalytics_frontend_node_modules
+    name: shop-anavid-int_frontend_node_modules
   n8n_data:
-    name: shopanalytics_n8n_data
+    name: shop-anavid-int_n8n_data
 
 networks:
-  shopanalytics_net:
-    name: shopanalytics_net
+  shop-anavid-int_net:
+    name: shop-anavid-int_net
     driver: bridge

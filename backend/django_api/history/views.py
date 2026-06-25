@@ -25,7 +25,91 @@ from cryptography.hazmat.backends import default_backend
 from . import visitor_data as vd
 from .models import FCMToken, Notification
 from .serializers import NotificationSerializer
+# shop lifting
+from .models import NotificationsVideo, NotificationsSpace
+from .serializers import NotificationsVideoSerializer, NotificationsSpaceSerializer
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
+
+@api_view(['GET'])
+# @permission_classes([IsAuthenticated])
+def videos_by_space(request, space_id):
+    """GET /api/videos/space/<space_id>/"""
+    videos = NotificationsVideo.objects.filter(
+        space_id=space_id,
+        status='APPROVED'
+    ).order_by('-recording_date')
+    
+    # Filtres optionnels
+    status = request.query_params.get('status')
+    if status:
+        videos = videos.filter(status=status)
+    
+    serializer = NotificationsVideoSerializer(videos, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+# @permission_classes([IsAuthenticated])
+def videos_by_organisation(request, organisation_id):
+    """GET /api/videos/organisation/<organisation_id>/"""
+    videos = NotificationsVideo.objects.filter(
+        space__organization_id=organisation_id,status='APPROVED'
+    ).order_by('-recording_date')
+    
+    # Filtres optionnels
+    status = request.query_params.get('status')
+    if status:
+        videos = videos.filter(status=status)
+
+    serializer = NotificationsVideoSerializer(videos, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+# @permission_classes([IsAuthenticated])
+def list_spaces(request):
+    """GET /api/videos/spaces/ — liste des spaces disponibles"""
+    spaces = NotificationsSpace.objects.all().order_by('name')
+    serializer = NotificationsSpaceSerializer(spaces, many=True)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+def videos_all(request):
+    """GET /api/videos/all/ — toutes les vidéos approuvées, tous spaces confondus"""
+    videos = NotificationsVideo.objects.filter(status='APPROVED').order_by('-recording_date')
+
+    # Filtre optionnel par qualification (ex: ?qualification=null pour voir seulement les non-qualifiées)
+    qualification = request.query_params.get('qualification')
+    if qualification == 'none':
+        videos = videos.filter(qualification__isnull=True)
+    elif qualification:
+        videos = videos.filter(qualification=qualification)
+
+    serializer = NotificationsVideoSerializer(videos, many=True)
+    return Response(serializer.data)
+@api_view(['PATCH'])
+# @permission_classes([IsAuthenticated])
+def qualify_video(request, video_id):
+    """PATCH /api/videos/<video_id>/qualify/ — qualifier une vidéo"""
+    try:
+        video = NotificationsVideo.objects.get(id=video_id)
+    except NotificationsVideo.DoesNotExist:
+        return Response({'error': 'Vidéo introuvable'}, status=404)
+    
+    status = request.data.get('status')
+    qualification = request.data.get('qualification')
+    
+    if status:
+        video.status = status
+    if qualification:
+        video.qualification = qualification
+    video.save()
+    
+    return Response(NotificationsVideoSerializer(video).data)
+####
 # ── Notifications N8N : persistance fichier JSON (ancienne méthode) ────────────
 _NOTIF_DIR  = Path(getattr(settings, "BACKEND_DIR", Path(__file__).resolve().parent.parent.parent)) / "data"
 _NOTIF_FILE = _NOTIF_DIR / "notifications.json"
@@ -113,7 +197,7 @@ def cameras(request):
     return Response({"cameras": vd.list_cameras()})
 
 
-# ── Notifications N8N — utilisation de la BD PostgreSQL ──────────────
+# ── Notifications N8N — utilisation de la BD mysql ──────────────
 
 @extend_schema(
     tags=["Notifications — N8N"],

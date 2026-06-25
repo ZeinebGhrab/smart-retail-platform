@@ -7,11 +7,12 @@ Données visiteurs lues depuis : backend/data/shoppingclub_2025_2026.csv
 Base de données :
   - Par défaut : SQLite (db.sqlite3) — utilisée seulement pour l'admin/
     le framework Django (pas pour les données visiteurs, qui restent en CSV).
-  - Optionnel  : PostgreSQL — définir la variable d'environnement
-    DB_ENGINE=postgresql ainsi que DB_NAME, DB_USER, DB_PASSWORD,
+  - Optionnel  :  mysql— définir la variable d'environnement
+    DB_ENGINE=mysql ainsi que DB_NAME, DB_USER, DB_PASSWORD,
     DB_HOST, DB_PORT pour basculer.
 """
-
+import pymysql
+pymysql.install_as_MySQLdb()
 from datetime import timedelta
 from pathlib import Path
 import os
@@ -80,15 +81,20 @@ WSGI_APPLICATION = "config.wsgi.application"
 # ------------------------------------------------------------
 # Base de données
 # ------------------------------------------------------------
-if os.environ.get("DB_ENGINE", "").lower() == "postgresql":
+if os.environ.get("DB_ENGINE", "").lower() == "mysql":
     DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.environ.get("DB_NAME", "shopanalytics"),
-            "USER": os.environ.get("DB_USER", "postgres"),
-            "PASSWORD": os.environ.get("DB_PASSWORD", "postgres"),
-            "HOST": os.environ.get("DB_HOST", "localhost"),
-            "PORT": os.environ.get("DB_PORT", "5432"),
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': os.environ.get("DB_NAME"),
+            'USER': os.environ.get("DB_USER"),
+            'PASSWORD': os.environ.get("DB_PASSWORD"),
+            'HOST': os.environ.get("DB_HOST"),
+            'PORT': os.environ.get("DB_PORT"),
+            'OPTIONS': {
+              'charset': 'utf8mb4',
+              'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            },
+            
         }
     }
 else:
@@ -98,6 +104,7 @@ else:
             "NAME": BASE_DIR / "db.sqlite3",
         }
     }
+
 
 AUTH_PASSWORD_VALIDATORS = []
 
