@@ -168,7 +168,7 @@ services:
     ports:
       - "8001:8000"
     volumes:
-      - ./modele-ML/xgboost_visitor_mvp.pkl:/app/xgboost_visitor_mvp.pkl:ro
+      - ./modele-ML/lightgbm_shoppingclub.pkl:/app/lightgbm_shoppingclub.pkl:ro
     environment:
       - PYTHONUNBUFFERED=1
     healthcheck:
