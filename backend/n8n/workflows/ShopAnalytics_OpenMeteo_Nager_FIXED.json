@@ -1,0 +1,548 @@
+{
+  "name": "ShopAnalytics - OpenMeteo + Nager",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * *"
+            }
+          ]
+        }
+      },
+      "id": "c99bdf93-07b3-47af-9be7-677318cb6d97",
+      "name": "Déclencheur 6h00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1680,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "await new Promise(r => setTimeout(r, 500));\nreturn [{\n  json: {\n    status: 'trained',\n    model_version: '1.0.0',\n    trained_at: new Date().toISOString(),\n    samples_used: 142\n  }\n}];"
+      },
+      "id": "6a49af92-afce-44ab-afb0-473e1a066d27",
+      "name": "Réentraînement Modèle ML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1504,
+        112
+      ],
+      "notes": "⚠️ MOCK — Remplacer par HTTP Request POST /api/train"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Date du jour au format ISO (YYYY-MM-DD), utilisée par les 2 branches suivantes\nconst today = new Date().toISOString().split('T')[0];\nreturn [{\n  json: {\n    date: today\n  }\n}];"
+      },
+      "id": "623e2075-a509-44e9-984b-7c236ad67562",
+      "name": "Date du Jour",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1328,
+        112
+      ],
+      "notes": "Centralise la date utilisée pour la météo, le jour férié et l'appel ML"
+    },
+    {
+      "parameters": {
+        "url": "https://api.open-meteo.com/v1/forecast",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "latitude",
+              "value": "34.7406"
+            },
+            {
+              "name": "longitude",
+              "value": "10.7603"
+            },
+            {
+              "name": "current",
+              "value": "temperature_2m,wind_speed_10m"
+            },
+            {
+              "name": "timezone",
+              "value": "Africa/Tunis"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "0bcef5a3-7964-459b-a3f1-d88d0495ca41",
+      "name": "Récupérer Météo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1152,
+        -64
+      ],
+      "notes": "API interne météo — retourne { temperature, wind_speed } pour la date donnée"
+    },
+    {
+      "parameters": {
+        "url": "=https://date.nager.at/api/v3/IsTodayPublicHoliday/TN",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "id": "7bc17633-3cc1-4bcd-a9c0-eb4b10e34da3",
+      "name": "Vérifier Jour Férié",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1168,
+        288
+      ],
+      "notes": "⚠️ Pays codé en dur sur TN (Tunisie). API Nager.Date : renvoie HTTP 200 si jour férié, 204 sinon."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Cette node reçoit le statut HTTP brut de \"Vérifier Jour Férié\"\n// 200 = jour férié, 204 = jour normal\nconst statusCode = $input.first().json.statusCode;\nconst type_jour = statusCode === 200 ? 'ferie' : 'normal';\n\nreturn [{\n  json: {\n    type_jour: type_jour\n  }\n}];"
+      },
+      "id": "9dbcd2d6-ff92-4892-83d5-e77920874fb6",
+      "name": "Interpréter Jour Férié",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -960,
+        304
+      ],
+      "notes": "Convertit le code HTTP de Nager.Date en type_jour: 'ferie' | 'normal'"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "b4b48660-6a35-46ba-897d-778b425ccd21",
+      "name": "Fusionner Météo + Jour",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        -800,
+        112
+      ],
+      "notes": "Combine la sortie de 'Récupérer Météo' (input 0) et 'Interpréter Jour Férié' (input 1)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst merged = Object.assign({}, ...items.map(i => i.json));\n\nconst date = $('Date du Jour').first().json.date;\n\n// Open-Meteo retourne: current.temperature_2m et current.wind_speed_10m\nconst currentWeather = merged.current || {};\nconst temperature = currentWeather.temperature_2m ?? merged.temperature ?? 'N/A';\nconst wind_speed  = currentWeather.wind_speed_10m  ?? merged.wind_speed  ?? 'N/A';\nconst type_jour   = merged.type_jour ?? 'normal';\n\nreturn [{\n  json: {\n    date,\n    temperature,\n    wind_speed,\n    type_jour\n  }\n}];"
+      },
+      "id": "248a9a4f-5efe-4fe4-8f98-e35452bf767a",
+      "name": "Préparer Contexte Jour",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -608,
+        112
+      ],
+      "notes": "Construit le payload final {date, temperature, wind_speed, type_jour} envoyé au modèle ML"
+    },
+    {
+      "parameters": {
+        "jsCode": "const predictions = $input.first().json.predictions;\n\n// Totaux par heure\nconst byHour = {};\nfor (const p of predictions) {\n  if (!byHour[p.hour]) byHour[p.hour] = 0;\n  byHour[p.hour] += p.total_visits;\n}\n\n// Heure de pointe\nconst heurePointe = Object.entries(byHour)\n  .sort((a, b) => b[1] - a[1])[0];\n\n// Total journalier\nconst totalJour = Object.values(byHour).reduce((a, b) => a + b, 0);\n\n// Profils détaillés (uniquement > 0, agrégés toutes caméras)\nconst profileCount = {};\nfor (const p of predictions) {\n  for (const prof of p.profile) {\n    if (prof.visits_predicted > 0) {\n      const key = `${prof.gender}_${prof.age}`;\n      profileCount[key] = (profileCount[key] || 0) + prof.visits_predicted;\n    }\n  }\n}\n\n// Trier par volume décroissant\nconst profilesSorted = Object.entries(profileCount)\n  .sort((a, b) => b[1] - a[1])\n  .map(([key, count]) => {\n    const [gender, age] = key.split('_');\n    return { gender, age, visits: count };\n  });\n\nconst profilDominant = profilesSorted[0] \n  ? `${profilesSorted[0].gender} ${profilesSorted[0].age}` \n  : 'N/A';\n\n// Détail par heure avec profils actifs\nconst detailParHeure = {};\nfor (const p of predictions) {\n  const h = p.hour;\n  if (!detailParHeure[h]) {\n    detailParHeure[h] = { total: 0, cameras: {}, profils_actifs: {} };\n  }\n  detailParHeure[h].total += p.total_visits;\n  \n  // Par caméra\n  detailParHeure[h].cameras[p.camera] = p.total_visits;\n  \n  // Profils actifs cette heure\n  for (const prof of p.profile) {\n    if (prof.visits_predicted > 0) {\n      const key = `${prof.gender} ${prof.age}`;\n      detailParHeure[h].profils_actifs[key] = \n        (detailParHeure[h].profils_actifs[key] || 0) + prof.visits_predicted;\n    }\n  }\n}\n\nreturn [{\n  json: {\n    date: predictions[0]?.date || new Date().toISOString().split('T')[0],\n    visiteurs_prevus_total: totalJour,\n    heure_pointe: `${heurePointe[0]}h00`,\n    visiteurs_heure_pointe: heurePointe[1],\n    profil_dominant: profilDominant,\n    profils_par_volume: profilesSorted,\n    detail_par_heure: detailParHeure\n  }\n}];"
+      },
+      "id": "198f7534-e019-49bd-96f9-f8120f0f1a70",
+      "name": "Prédiction Visiteurs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        112
+      ],
+      "notes": "⚠️ MOCK — Remplacer par HTTP Request POST /api/predict"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst ctx = $('Préparer Contexte Jour').first().json;\n\nconst temperature = data.temperature ?? ctx.temperature ?? 'N/A';\nconst wind_speed  = data.wind_speed  ?? ctx.wind_speed  ?? 'N/A';\nconst type_jour   = data.type_jour   ?? ctx.type_jour   ?? 'normal';\nconst date        = data.date        ?? ctx.date;\n\nconst jourLabel   = type_jour === 'ferie' ? 'jour ferie' : 'jour ouvrable';\nconst meteo       = `temperature ${temperature}°C, vent ${wind_speed} km/h`;\nconst profilesStr = (data.profils_par_volume || [])\n  .map(p => `${p.gender} ${p.age}: ${p.visits} visites`)\n  .join(', ');\n\nconst prompt = `Tu es l assistant analytique de ShopAnalytics pour Anavid Store 360.\n\nContexte du ${date} :\n- Meteo : ${meteo}\n- Type de jour : ${jourLabel}\n\nPredictions ML :\n- Visiteurs prevus : ${data.visiteurs_prevus_total}\n- Profil dominant : ${data.profil_dominant}\n- Heure de pointe : ${data.heure_pointe}h avec ${data.visiteurs_heure_pointe} visiteurs\n- Profils actifs : ${profilesStr}\n\nRedige un message professionnel et concis de 4 a 5 phrases en francais a destination de l equipe du magasin. Mentionne la meteo du jour, si c est un jour ferie ou non, le nombre de visiteurs attendus, l heure de pointe, et donne 1 a 2 recommandations concretes sur la gestion du personnel ou des caisses.`;\n\nreturn [{\n  json: {\n    prompt: prompt,\n    prediction: { ...data, temperature, wind_speed, type_jour, date }\n  }\n}];"
+      },
+      "id": "1dab372f-1b4b-4821-ab04-4fbe4d823b67",
+      "name": "Préparer Prompt Ollama",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -64,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Préparer Prompt Ollama').item.json.prompt }}"
+      },
+      "id": "aafc709f-2b45-49f0-a66f-6c1c81ff7922",
+      "name": "Basic LLM Chain",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [
+        96,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "model": "=llama3.2:3b-instruct-q4_K_M",
+        "options": {
+          "temperature": 0.1,
+          "numCtx": 4096,
+          "numPredict": 300
+        }
+      },
+      "id": "d320d7f5-d7b4-4ed8-acb4-fd81d593b8b6",
+      "name": "Ollama Model",
+      "type": "@n8n/n8n-nodes-langchain.lmOllama",
+      "typeVersion": 1,
+      "position": [
+        208,
+        352
+      ],
+      "credentials": {
+        "ollamaApi": {
+          "id": "ERsQ1fuKpW2T3PvT",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const llmText = $input.first().json.text?.trim();\nconst pred = $('Préparer Prompt Ollama').first().json.prediction;\n\nconst total = pred.visiteurs_prevus_total;\nlet niveau_affluence;\nif (total < 50)       niveau_affluence = \"Faible\";\nelse if (total < 150) niveau_affluence = \"Modéré\";\nelse if (total < 350) niveau_affluence = \"Élevé\";\nelse                  niveau_affluence = \"Très élevé\";\n\nreturn [{\n  json: {\n    type: 'llm_report',\n    date: pred.date,\n    generated_at: new Date().toISOString(),\n    message: llmText,\n    prediction: {\n      visiteurs_prevus:       pred.visiteurs_prevus_total,\n      profil_dominant:        pred.profil_dominant,\n      niveau_affluence:       niveau_affluence,\n      heure_pointe:           pred.heure_pointe,\n      visiteurs_heure_pointe: pred.visiteurs_heure_pointe,\n      profils_par_volume:     pred.profils_par_volume,\n      detail_par_heure:       pred.detail_par_heure\n    }\n  }\n}];"
+      },
+      "id": "39e94941-5718-458a-a831-97773154796c",
+      "name": "Formater Payload SSE",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        128
+      ],
+      "notes": "Formate exactement le PredictionData attendu par Dashboard.tsx et Django SSE"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://shopanalytics-django-api:8000/api/daily-report/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "4f099654-bad6-4fbf-90a7-296ce50f70a1",
+      "name": "Push SSE → Django",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        624,
+        -64
+      ],
+      "notes": "POST /api/daily-report/ → Django notifie tous les clients SSE connectés (Dashboard + ChatIA)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Appel HTTP via $http natif de N8N (fetch et http sont bloqués)\nconst llmText = $input.first().json.text?.trim();\nconst prediction = $('Préparer Prompt Ollama').first().json.prediction;\n\nlet chatAnswer = llmText;\n\ntry {\n  const response = await $http.request({\n    method: 'POST',\n    url: 'http://shopanalytics-django-api:8000/api/chat/',\n    headers: { 'Content-Type': 'application/json' },\n    body: {\n      question: `Rapport quotidien automatique du ${prediction.date_prevision} : ${llmText}`\n    },\n    json: true\n  });\n  chatAnswer = response.answer || llmText;\n} catch (err) {\n  console.log('Django indisponible, fallback LLM : ' + err.message);\n}\n\nconst notification = {\n  id: Date.now(),\n  date: prediction.date_prevision,\n  generated_at: new Date().toISOString(),\n  visiteurs_prevus: prediction.visiteurs_prevus,\n  profil_dominant: prediction.profil_dominant,\n  niveau_affluence: prediction.niveau_affluence,\n  heure_pointe: `${prediction.heure_pointe_debut} - ${prediction.heure_pointe_fin}`,\n  message: chatAnswer,\n  model: 'llama3.2:3b-instruct-q4_K_M',\n  type: 'daily_report'\n};\n\nreturn [{ json: notification }];"
+      },
+      "id": "6f33f9dc-1abc-484f-b8c6-624da573eecd",
+      "name": "Envoyer au Chatbot",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        320
+      ],
+      "notes": "Envoie le message LLM au RAG Django → chatbot Ionic (hostname corrigé)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://shopanalytics-django-api:8000/api/send-fcm/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "=json",
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "jsonBody": "={{\n{\n  title: \"📊 Rapport Quotidien - \" + $json.date,\n  body: $json.message,\n  data: {\n    type: $json.type,\n    date: $json.date,\n    visiteurs_prevus: $json.prediction.visiteurs_prevus,\n    profil_dominant: $json.prediction.profil_dominant,\n    niveau_affluence: $json.prediction.niveau_affluence,\n    heure_pointe: $json.prediction.heure_pointe\n  }\n}\n}}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        624,
+        128
+      ],
+      "id": "74dc76b1-b653-4d73-97c9-63b52c23b3d8",
+      "name": "Envoyer FCM"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://shopanalytics-visitor-ml-api:8000/predict",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ date: $json.date, temperature: $json.temperature, wind_speed: $json.wind_speed, type_jour: $json.type_jour }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -416,
+        112
+      ],
+      "id": "8e2b341b-58f3-4370-98b2-6dbeecb05787",
+      "name": "HTTP Request",
+      "notes": "POST /predict — body {date, temperature, wind_speed, type_jour} → LightGBM API"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Déclencheur 6h00": {
+      "main": [
+        [
+          {
+            "node": "Réentraînement Modèle ML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Réentraînement Modèle ML": {
+      "main": [
+        [
+          {
+            "node": "Date du Jour",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Date du Jour": {
+      "main": [
+        [
+          {
+            "node": "Récupérer Météo",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Vérifier Jour Férié",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Récupérer Météo": {
+      "main": [
+        [
+          {
+            "node": "Fusionner Météo + Jour",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vérifier Jour Férié": {
+      "main": [
+        [
+          {
+            "node": "Interpréter Jour Férié",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Interpréter Jour Férié": {
+      "main": [
+        [
+          {
+            "node": "Fusionner Météo + Jour",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Fusionner Météo + Jour": {
+      "main": [
+        [
+          {
+            "node": "Préparer Contexte Jour",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Préparer Contexte Jour": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prédiction Visiteurs": {
+      "main": [
+        [
+          {
+            "node": "Préparer Prompt Ollama",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Préparer Prompt Ollama": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Formater Payload SSE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formater Payload SSE": {
+      "main": [
+        [
+          {
+            "node": "Envoyer au Chatbot",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Envoyer FCM",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Push SSE → Django",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Prédiction Visiteurs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "76ff0430-d0a5-44db-8f60-013309421e0c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "880c0d6dfb3050af300430f071fdccf2089f126769360e75adeffc92c27f659a"
+  },
+  "nodeGroups": [],
+  "id": "cxVK9kJdrJMSwYiS",
+  "tags": [
+    {
+      "updatedAt": "2026-06-24T23:09:32.557Z",
+      "createdAt": "2026-06-24T23:09:32.557Z",
+      "id": "HctqXK88s338Qu8r",
+      "name": "Sprint1"
+    },
+    {
+      "updatedAt": "2026-06-24T23:09:32.507Z",
+      "createdAt": "2026-06-24T23:09:32.507Z",
+      "id": "z5uoFLU8Ziw2HroJ",
+      "name": "ShopAnalytics"
+    },
+    {
+      "name": "Lot3",
+      "id": "fUWocVvuuEDxAfzU",
+      "updatedAt": "2026-06-25T11:30:32.765Z",
+      "createdAt": "2026-06-25T11:30:32.765Z"
+    }
+  ]
+}
