@@ -1,5 +1,5 @@
 # ============================================================
-# history/chat_view.py — Endpoint Django pour le Chat IA
+# history/chatbot/views.py — Endpoint Django pour le Chat IA
 # POST /api/chat/
 # Body  : { "question": "Nombre de visiteurs le 2026-05-30 ?" }
 # Return: { "answer": "...", "model": "...", "sources": {...} }

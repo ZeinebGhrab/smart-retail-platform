@@ -1,5 +1,5 @@
 # ============================================================
-# history/rag_pipeline.py — Pipeline RAG léger
+# history/chatbot/rag_pipeline.py — Pipeline RAG léger
 #
 # Pourquoi sans torch / chromadb / sentence-transformers ?
 #   → torch seul = 532 MB téléchargés au build du conteneur
