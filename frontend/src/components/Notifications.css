@@ -242,3 +242,122 @@
 .notif-ask-ia-btn:active {
   transform: translateY(0);
 }
+/* ══════════════════════════════════════════════════════════
+   LISTE COMPACTE (notif-row) — affiche titre + badge niveau
+   ══════════════════════════════════════════════════════════ */
+.notif-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 14px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e6f0;
+  cursor: pointer;
+  gap: 10px;
+  transition: background .13s, border-color .13s;
+}
+.notif-row:hover { background: rgba(37,99,235,.05); border-color: #bfcfee; }
+
+.notif-row-latest { border-color: #2563eb; background: #f0f4ff; }
+.notif-row-unread { background: #f0f4ff; border: 1.5px solid #dbeafe; }
+
+.notif-row-left {
+  display: flex; align-items: center; gap: 10px; min-width: 0;
+}
+.notif-unread-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #dc2626; flex-shrink: 0;
+  animation: pulse 2s infinite;
+}
+.notif-row-icon {
+  width: 28px; height: 28px;
+  background: rgba(37,99,235,.10);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.notif-row-text { min-width: 0; }
+.notif-row-title {
+  font-size: 13px; font-weight: 600; color: #111827;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 195px;
+}
+.notif-row-sub { font-size: 11px; color: #64748b; margin-top: 1px; }
+
+.notif-row-right {
+  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════════════════════════
+   VUE DÉTAIL — vue complète d'une notification
+   ══════════════════════════════════════════════════════════ */
+.notif-detail-view {
+  display: flex; flex-direction: column;
+  height: 100%; overflow: hidden;
+}
+.notif-detail-header {
+  padding: 10px 14px;
+  border-bottom: 1px solid #e2e6f0;
+  background: #eef1f7;
+  flex-shrink: 0;
+}
+.notif-back-btn {
+  display: flex; align-items: center; gap: 5px;
+  background: none; border: none;
+  font-size: 13px; font-weight: 600; color: #2563eb;
+  cursor: pointer; padding: 4px 0;
+}
+.notif-back-btn ion-icon { font-size: 16px; }
+.notif-back-btn:hover { color: #1d4ed8; }
+
+.notif-detail-body {
+  overflow-y: auto; flex: 1; padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.notif-detail-title {
+  font-size: 14px; font-weight: 700; color: #111827; line-height: 1.4;
+}
+.notif-detail-meta {
+  display: flex; gap: 14px; flex-wrap: wrap;
+  font-size: 11px; color: #64748b;
+}
+.notif-detail-meta span {
+  display: flex; align-items: center; gap: 4px;
+}
+.notif-detail-meta ion-icon { font-size: 13px; }
+
+/* chips clés */
+.notif-detail-chips {
+  display: flex; flex-wrap: wrap; gap: 7px;
+}
+.notif-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 600; color: #1d4ed8;
+  background: rgba(37,99,235,.08);
+  border: 1px solid rgba(37,99,235,.20);
+  border-radius: 20px; padding: 3px 10px;
+}
+.notif-chip ion-icon { font-size: 12px; }
+.notif-chip-level { background: rgba(15,23,42,.04); }
+
+/* Message LLM en prose */
+.notif-detail-message {
+  font-size: 12.5px; line-height: 1.7; color: #334155;
+  background: #f8fafc; border: 1px solid #e2e6f0;
+  border-radius: 10px; padding: 12px 14px;
+}
+.notif-msg-line { margin: 0 0 4px; }
+.notif-msg-heading {
+  font-size: 13px; font-weight: 700; color: #1e3a8a;
+  margin: 10px 0 4px;
+}
+.notif-msg-separator {
+  border: none; border-top: 1px solid #e2e6f0; margin: 8px 0;
+}
+.notif-msg-bullet { margin: 2px 0; padding-left: 4px; }
+
+.notif-detail-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 4px;
+}
