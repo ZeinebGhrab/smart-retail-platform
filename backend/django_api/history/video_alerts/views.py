@@ -1,0 +1,346 @@
+# ============================================================
+# video_alerts/views.py
+# Vues API pour les alertes vidéo
+# ============================================================
+
+from django.utils import timezone
+from drf_spectacular.utils import extend_schema, OpenApiParameter
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
+
+from .models import VideoTheftAlert, AlertSpace
+from .serializers import (
+    VideoTheftAlertListSerializer,
+    VideoTheftAlertDetailSerializer,
+    VideoQualificationSerializer,
+    AlertSpaceSerializer,
+)
+
+
+# ──────────────────────────────────────────────────────────
+# Paramètres OpenAPI récurrents
+# ──────────────────────────────────────────────────────────
+
+PAGINATION_PARAM = OpenApiParameter(
+    "limit",
+    int,
+    description="Nombre maximum de résultats (défaut: 50)",
+    required=False,
+)
+
+OFFSET_PARAM = OpenApiParameter(
+    "offset",
+    int,
+    description="Décalage pour la pagination (défaut: 0)",
+    required=False,
+)
+
+STATUS_PARAM = OpenApiParameter(
+    "status",
+    str,
+    description="Filtrer par statut: PENDING, APPROVED, REJECTED",
+    required=False,
+)
+
+QUALIFICATION_PARAM = OpenApiParameter(
+    "qualification",
+    str,
+    description="Filtrer par qualification: vol, suspicious, false_alarm",
+    required=False,
+)
+
+
+# ──────────────────────────────────────────────────────────
+# API : Espaces de surveillance
+# ──────────────────────────────────────────────────────────
+
+@extend_schema(
+    tags=["Alertes Vidéo - Espaces"],
+    summary="Liste tous les espaces de surveillance",
+)
+@api_view(['GET'])
+def list_alert_spaces(request):
+    """
+    GET /api/video-alerts/spaces/
+    Retourne la liste de tous les espaces de surveillance disponibles.
+    """
+    spaces = AlertSpace.objects.all().order_by('name')
+    serializer = AlertSpaceSerializer(spaces, many=True)
+    return Response({
+        'count': spaces.count(),
+        'results': serializer.data,
+    })
+
+
+@extend_schema(
+    tags=["Alertes Vidéo - Espaces"],
+    summary="Détails d'un espace de surveillance",
+)
+@api_view(['GET'])
+def get_alert_space(request, space_id):
+    """
+    GET /api/video-alerts/spaces/<space_id>/
+    Retourne les détails d'un espace spécifique.
+    """
+    try:
+        space = AlertSpace.objects.get(id=space_id)
+        serializer = AlertSpaceSerializer(space)
+        return Response(serializer.data)
+    except AlertSpace.DoesNotExist:
+        return Response(
+            {'error': f'Espace {space_id} non trouvé'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+
+# ──────────────────────────────────────────────────────────
+# API : Alertes vidéo
+# ──────────────────────────────────────────────────────────
+
+@extend_schema(
+    tags=["Alertes Vidéo"],
+    summary="Alertes vidéo d'un espace spécifique",
+    parameters=[STATUS_PARAM, QUALIFICATION_PARAM, PAGINATION_PARAM, OFFSET_PARAM],
+)
+@api_view(['GET'])
+def videos_by_space(request, space_id):
+    """
+    GET /api/video-alerts/space/<space_id>/
+    Retourne les alertes vidéo approuvées pour un espace donné.
+    
+    Paramètres optionnels :
+    - status : Filtrer par statut
+    - qualification : Filtrer par qualification
+    - limit : Nombre max de résultats
+    - offset : Décalage pour pagination
+    """
+    # Récupérer les alertes du space
+    alerts = VideoTheftAlert.objects.filter(
+        space_id=space_id,
+        status='APPROVED'
+    ).order_by('-recording_date')
+    
+    # Appliquer filtres
+    status_filter = request.query_params.get('status')
+    if status_filter:
+        alerts = alerts.filter(status=status_filter)
+    
+    qualification = request.query_params.get('qualification')
+    if qualification and qualification != 'null':
+        alerts = alerts.filter(qualification=qualification)
+    elif qualification == 'null':
+        alerts = alerts.filter(qualification__isnull=True)
+    
+    # Pagination manuelle
+    limit = int(request.query_params.get('limit', 50))
+    offset = int(request.query_params.get('offset', 0))
+    total_count = alerts.count()
+    alerts = alerts[offset:offset+limit]
+    
+    serializer = VideoTheftAlertListSerializer(alerts, many=True)
+    return Response({
+        'count': total_count,
+        'limit': limit,
+        'offset': offset,
+        'results': serializer.data,
+    })
+
+
+@extend_schema(
+    tags=["Alertes Vidéo"],
+    summary="Alertes vidéo d'une organisation",
+    parameters=[STATUS_PARAM, QUALIFICATION_PARAM, PAGINATION_PARAM, OFFSET_PARAM],
+)
+@api_view(['GET'])
+def videos_by_organization(request, organization_id):
+    """
+    GET /api/video-alerts/organization/<organization_id>/
+    Retourne les alertes vidéo approuvées pour tous les espaces d'une organisation.
+    """
+    alerts = VideoTheftAlert.objects.filter(
+        space__organization_id=organization_id,
+        status='APPROVED'
+    ).order_by('-recording_date')
+    
+    # Filtres
+    status_filter = request.query_params.get('status')
+    if status_filter:
+        alerts = alerts.filter(status=status_filter)
+    
+    qualification = request.query_params.get('qualification')
+    if qualification and qualification != 'null':
+        alerts = alerts.filter(qualification=qualification)
+    elif qualification == 'null':
+        alerts = alerts.filter(qualification__isnull=True)
+    
+    # Pagination
+    limit = int(request.query_params.get('limit', 50))
+    offset = int(request.query_params.get('offset', 0))
+    total_count = alerts.count()
+    alerts = alerts[offset:offset+limit]
+    
+    serializer = VideoTheftAlertListSerializer(alerts, many=True)
+    return Response({
+        'count': total_count,
+        'limit': limit,
+        'offset': offset,
+        'results': serializer.data,
+    })
+
+
+@extend_schema(
+    tags=["Alertes Vidéo"],
+    summary="Toutes les alertes vidéo (approuvées)",
+    parameters=[QUALIFICATION_PARAM, PAGINATION_PARAM, OFFSET_PARAM],
+)
+@api_view(['GET'])
+def list_all_video_alerts(request):
+    """
+    GET /api/video-alerts/all/
+    Retourne toutes les alertes vidéo approuvées de tous les espaces.
+    """
+    alerts = VideoTheftAlert.objects.filter(
+        status='APPROVED'
+    ).order_by('-recording_date')
+    
+    # Filtre par qualification
+    qualification = request.query_params.get('qualification')
+    if qualification and qualification != 'null':
+        alerts = alerts.filter(qualification=qualification)
+    elif qualification == 'null':
+        alerts = alerts.filter(qualification__isnull=True)
+    
+    # Pagination
+    limit = int(request.query_params.get('limit', 50))
+    offset = int(request.query_params.get('offset', 0))
+    total_count = alerts.count()
+    alerts = alerts[offset:offset+limit]
+    
+    serializer = VideoTheftAlertListSerializer(alerts, many=True)
+    return Response({
+        'count': total_count,
+        'limit': limit,
+        'offset': offset,
+        'results': serializer.data,
+    })
+
+
+@extend_schema(
+    tags=["Alertes Vidéo"],
+    summary="Détail d'une alerte vidéo",
+)
+@api_view(['GET'])
+def get_video_alert_detail(request, video_id):
+    """
+    GET /api/video-alerts/<video_id>/
+    Retourne le détail complet d'une alerte vidéo.
+    """
+    try:
+        video = VideoTheftAlert.objects.get(id=video_id)
+        serializer = VideoTheftAlertDetailSerializer(video)
+        return Response(serializer.data)
+    except VideoTheftAlert.DoesNotExist:
+        return Response(
+            {'error': f'Alerte vidéo {video_id} non trouvée'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+
+@extend_schema(
+    tags=["Alertes Vidéo"],
+    summary="Qualifier une alerte vidéo",
+    request=VideoQualificationSerializer,
+)
+@api_view(['PATCH', 'POST'])
+def qualify_video_alert(request, video_id):
+    """
+    PATCH /api/video-alerts/<video_id>/qualify/
+    POST /api/video-alerts/<video_id>/qualify/
+    
+    Qualifie manuellement une alerte vidéo en mettant à jour son statut.
+    
+    Corps de la requête :
+    {
+        \"status\": \"APPROVED\" | \"REJECTED\" | \"PENDING\",
+        \"qualification\": \"vol\" | \"suspicious\" | \"false_alarm\",
+        \"reviewer\": \"Nom du relecteur\",
+        \"notes\": \"Commentaires supplémentaires\"
+    }
+    """
+    try:
+        video = VideoTheftAlert.objects.get(id=video_id)
+    except VideoTheftAlert.DoesNotExist:
+        return Response(
+            {'error': f'Alerte vidéo {video_id} non trouvée'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    serializer = VideoQualificationSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    validated_data = serializer.validated_data
+    
+    # Mettre à jour les champs
+    if 'status' in validated_data:
+        video.status = validated_data['status']
+    
+    if 'qualification' in validated_data:
+        video.qualification = validated_data['qualification']
+    
+    if 'reviewer' in validated_data:
+        video.reviewer = validated_data['reviewer']
+        video.reviewed_at = timezone.now()
+    
+    if 'notes' in validated_data:
+        video.notes = validated_data['notes']
+    
+    video.save()
+    
+    response_serializer = VideoTheftAlertDetailSerializer(video)
+    return Response({
+        'status': 'ok',
+        'message': 'Alerte vidéo mise à jour avec succès',
+        'alert': response_serializer.data,
+    })
+
+
+# ──────────────────────────────────────────────────────────
+# API : Statistiques et rapports
+# ──────────────────────────────────────────────────────────
+
+@extend_schema(
+    tags=["Alertes Vidéo - Rapports"],
+    summary="Statistiques des alertes vidéo",
+)
+@api_view(['GET'])
+def video_alerts_stats(request):
+    """
+    GET /api/video-alerts/stats/
+    Retourne les statistiques globales sur les alertes vidéo.
+    """
+    total_alerts = VideoTheftAlert.objects.count()
+    approved_alerts = VideoTheftAlert.objects.filter(status='APPROVED').count()
+    pending_alerts = VideoTheftAlert.objects.filter(status='PENDING').count()
+    rejected_alerts = VideoTheftAlert.objects.filter(status='REJECTED').count()
+    
+    qualified_alerts = VideoTheftAlert.objects.filter(qualification__isnull=False).count()
+    
+    # Alertes par qualification
+    by_qualification = {
+        'vol': VideoTheftAlert.objects.filter(qualification='vol').count(),
+        'suspicious': VideoTheftAlert.objects.filter(qualification='suspicious').count(),
+        'false_alarm': VideoTheftAlert.objects.filter(qualification='false_alarm').count(),
+    }
+    
+    return Response({
+        'total': total_alerts,
+        'by_status': {
+            'approved': approved_alerts,
+            'pending': pending_alerts,
+            'rejected': rejected_alerts,
+        },
+        'qualified': qualified_alerts,
+        'by_qualification': by_qualification,
+    })
