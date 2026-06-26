@@ -1,151 +1,97 @@
-# `history/` — Application Django : analytics, RAG et notifications
+# `history/` — App métier principale
 
-Application Django principale : expose les endpoints analytiques sur les données visiteurs, le chat RAG alimenté par Ollama, et le canal de notifications alimenté par le workflow N8N (prévisions quotidiennes via SSE).
+L'app `history` regroupe toutes les fonctionnalités data/métier de la plateforme Anavid Store 360 :  
+analytics visiteurs, alertes vidéo, prédictions IA et chat en langage naturel.
 
 ---
 
-## Fichiers
+## Sous-applications
+
+| Dossier | Rôle | README |
+|---|---|---|
+| `visitors/` | Données d'affluence issues du CSV (historique, flux horaire, prévisions) | [→ README](visitors/README.md) |
+| `video_alerts/` | Alertes vidéo de détection de vol, qualification manuelle | [→ README](video_alerts/README.md) |
+| `n8n_predictions/` | Rapports N8N, SSE temps réel, notifications push FCM | [→ README](n8n_predictions/README.md) |
+
+---
+
+## Fichiers racine
 
 | Fichier | Rôle |
 |---|---|
-| `views.py` | Endpoints REST analytics + notifications N8N + flux SSE + FCM |
-| `visitor_data.py` | Lecture/cache du CSV visiteurs + fonctions de calcul analytique |
-| `rag_pipeline.py` | Pipeline RAG (retrieval CSV + KB, appel Ollama) |
-| `chat_view.py` | Endpoint `POST /api/chat/`, orchestre `rag_pipeline.py` |
-| `models.py` | `FCMToken`, `Notification` |
-| `urls.py` | Routage de tous les endpoints `history/`, `notifications/`, `prediction/`, `daily-report/`, `chat/` et FCM (`fcm-token/`, `send-fcm/`) |
-| `apps.py` | Configuration de l'app (`AppConfig`) |
+| `urls.py` | Routeur principal — assemble tous les sous-namespaces et alias frontend |
+| `chat_view.py` | Endpoint `POST /api/chat/` — question en langage naturel |
+| `rag_pipeline.py` | Pipeline RAG : ChromaDB + Ollama (Llama 3.2 3B) |
+| `utils.py` | Helper `get_pagination_params()` — partagé par toutes les sous-apps |
 
 ---
 
-## Modèles en base
+## Routage
 
-| Modèle | Table PostgreSQL | Description |
-|---|---|---|
-| `FCMToken` | `history_fcmtoken` | Tokens FCM des appareils clients pour les notifications push |
-| `Notification` | `history_notification` | Notifications de prédictions reçues de N8N (rapports quotidiens) |
+Toutes les URLs sont montées sous `/api/` via `config/urls.py` :
 
-> **Note :** Le modèle `NotificationLog` a été supprimé — il n'était jamais alimenté dans le code (`send_fcm` ne créait aucune entrée). La table `history_notificationlog` a été retirée de la base de données.
+```
+/api/
+├── chat/                          → chat_view.chat
+├── history/                       → visitors/ (analytics)
+├── video-alerts/                  → video_alerts/ (alertes)
+├── videos/                        → alias frontend video_alerts/
+├── notifications/                 → alias frontend n8n_predictions/
+├── predictions/                   → n8n_predictions/ (prédictions)
+└── prediction/stream/             → alias frontend SSE
+```
 
 ---
 
-## Endpoints
+## Chat IA — `POST /api/chat/`
 
-Base : `http://localhost:8000/api/`
+Endpoint RAG qui répond à des questions en français sur les données du magasin.
 
-### Analytics visiteurs
-
-| Méthode | URL | Description |
-|---|---|---|
-| `GET` | `history/visitors/` | Historique journalier (genre/âge) |
-| `GET` | `history/visitors/count/` | Comptage pour une date donnée |
-| `GET` | `history/visitors/hourly/` | Flux horaire + heure de pointe |
-| `GET` | `history/visitors/forecast/` | Prévision J+1 (régression linéaire) |
-| `GET` | `history/summary/` | KPIs globaux (période, total, répartition) |
-| `GET` | `history/cameras/` | Liste des caméras disponibles |
-
-Paramètres communs (query string) : `date` (`YYYY-MM-DD`), `start_date` / `end_date`, `camera` (`Porte_nord` / `Porte_sud`).
-
-### Chat RAG
-
-| Méthode | URL | Description |
-|---|---|---|
-| `POST` | `chat/` | Question en langage naturel → réponse générée par Ollama, enrichie du contexte CSV + base de connaissances |
-
-### Notifications & rapport quotidien (N8N)
-
-| Méthode | URL | Vue | Description |
-|---|---|---|---|
-| `GET` | `notifications/latest/` | `latest_notification` | Dernière notification reçue |
-| `GET` | `notifications/history/` | `notifications_history` | Historique complet trié par date décroissante |
-| `GET` | `notifications/unread-count/` | `unread_notifications_count` | Nombre de notifications non lues |
-| `POST` | `notifications/<id>/mark-read/` | `mark_notification_read` | Marque une notification comme lue |
-| `POST` | `notifications/mark-all-read/` | `mark_all_notifications_read` | Marque toutes les notifications comme lues |
-| `GET` | `prediction/stream/` | `sse_stream` (alias `prediction_stream`) | Connexion SSE longue durée |
-| `POST` | `daily-report/` | `daily_report` | Reçoit le payload prédictif depuis N8N, le persiste en BD et le diffuse en SSE |
-
-### Notifications push (FCM)
-
-| Méthode | URL | Vue | Description |
-|---|---|---|---|
-| `POST` | `fcm-token/` | `save_fcm_token` | Enregistre le token FCM d'un appareil (`FCMToken.objects.get_or_create`) |
-| `POST` | `send-fcm/` | `send_fcm` | Envoie une notification push à tous les tokens enregistrés via l'API FCM v1 |
-
-Configuration complète (Service Account Firebase, variables `FCM_PROJECT_ID` / `FCM_CLIENT_EMAIL` / `FCM_PRIVATE_KEY`) : voir [`frontend/README_APK_Android.md` section 4](../../../frontend/README_APK_Android.md#4-configuration-fcm-firebase-cloud-messaging).
-
----
-
-## Flux notifications push (FCM)
-
-```
-Frontend (hooks/useFirebaseMessaging.ts)
-      │ obtient un token FCM (natif ou web)
-      ▼
-POST /api/fcm-token/ ──► save_fcm_token ──► FCMToken.objects.get_or_create(token=...)
-
-[Déclenché manuellement ou via services/fcm.ts::sendFCMNotification]
-POST /api/send-fcm/ ──► send_fcm
-      │
-      ├─► _get_fcm_access_token()   — OAuth2 JWT signé avec FCM_PRIVATE_KEY
-      ├─► lecture de tous les FCMToken en base
-      ▼
-POST https://fcm.googleapis.com/v1/projects/{FCM_PROJECT_ID}/messages:send  (un appel par token)
-      ▼
-{ "sent": N, "errors": [...] }   — réponse directe, aucune persistance en base
-```
-
-Si aucun token n'est enregistré, `send_fcm` renvoie `{"sent": 0, "errors": [], "info": "..."}` sans erreur (HTTP 200). Si la configuration FCM (`FCM_PROJECT_ID` / `FCM_CLIENT_EMAIL` / `FCM_PRIVATE_KEY`) est incomplète ou invalide, une `FCMConfigError` est levée avec un message explicite.
-
----
-
-## Flux de notifications temps réel
-
-```
-N8N (cron 6h00) ──POST──► /api/daily-report/ ──┬──► persistance PostgreSQL (Notification)
-                                                 └──► broadcast SSE ──► tous les clients connectés à /api/prediction/stream/
-```
-
-- `daily_report` valide la présence des champs requis (`type`, `date`, `message`, `prediction`), crée une entrée `Notification` en base (`is_read=False`), puis diffuse immédiatement (`queue.put_nowait`) à tous les clients SSE actifs (`_sse_clients`).
-- `sse_stream` ouvre une `StreamingHttpResponse` (`text/event-stream`) : émet un événement `connected` à l'ouverture, puis un événement nommé **`llm_report`** à chaque nouveau payload, avec un keepalive toutes les 30 secondes en l'absence d'activité.
-- Le frontend (`hooks/useSSEPrediction.ts`) écoute spécifiquement l'événement `llm_report` (et non l'événement par défaut `message`).
-
-**Format du payload attendu :**
+**Corps de la requête :**
 ```json
 {
-  "type": "llm_report",
-  "date": "2026-06-16",
-  "generated_at": "2026-06-16T06:00:00Z",
-  "message": "...",
-  "prediction": {
-    "visiteurs_prevus": 412,
-    "profil_dominant": "Familles",
-    "niveau_affluence": "Élevé",
-    "heure_pointe": "14:00 - 18:00"
-  }
+  "question": "Nombre de visiteurs le 2026-05-30 ?",
+  "history": [
+    { "role": "user", "content": "Et la semaine dernière ?" },
+    { "role": "assistant", "content": "La semaine dernière il y a eu 1 240 visiteurs." }
+  ]
 }
 ```
 
----
-
-## Pipeline RAG (`rag_pipeline.py` + `chat_view.py`)
-
-```
-Question utilisateur
-      │
-      ├─► _build_csv_context()   — KPIs du jour extraits du CSV
-      ├─► _retrieve_kb()         — similarité cosinus sur knowledge_base.json (embeddings Ollama)
-      ▼
-_build_prompt()                  — assemble contexte CSV + docs KB + question
-      ▼
-_call_ollama()                   — POST /api/generate sur Ollama
-      ▼
-{ "answer": "...", "model": "...", "sources": {...} }
+**Réponse :**
+```json
+{
+  "answer": "Le 2026-05-30, 218 visiteurs ont été enregistrés (Porte_nord : 120, Porte_sud : 98).",
+  "model": "llama3.2:3b-instruct-q4_K_M",
+  "sources": { ... }
+}
 ```
 
-Sans dépendance lourde (pas de ChromaDB ni `sentence-transformers`) : les embeddings sont délégués à Ollama via HTTP, le modèle étant déjà chargé en mémoire. Détail complet (frameworks RAG, paramètres d'inférence) dans `django_api/README.md`.
+Le champ `history` est optionnel et permet de gérer les questions de suivi  
+(ex: "Et hier ?" après une première question sur une date).
 
 ---
 
-## `visitor_data.py`
+## Pagination centralisée
 
-Charge le CSV `data/shoppingclub_2025_2026.csv` en mémoire avec un **cache invalidé par `mtime`** : aucune recharge inutile si le fichier n'a pas changé sur disque. Le chemin du fichier est configurable via la variable d'environnement `VISITOR_DATA_CSV`.
+Toutes les vues de liste utilisent `get_pagination_params()` depuis `utils.py` :
+
+```python
+from ..utils import get_pagination_params
+
+limit, offset = get_pagination_params(request.query_params)
+total = queryset.count()
+page  = queryset[offset:offset + limit]
+```
+
+| Paramètre | Défaut | Max | Comportement si invalide |
+|---|---|---|---|
+| `limit` | `50` | `200` | Remplacé par défaut |
+| `offset` | `0` | — | Remplacé par `0` |
+
+---
+
+## Authentification
+
+Les endpoints `history/` sont **publics** (`AllowAny` par défaut dans `settings.py`).  
+Aucun token JWT n'est requis pour accéder aux données visiteurs, alertes ou notifications.
