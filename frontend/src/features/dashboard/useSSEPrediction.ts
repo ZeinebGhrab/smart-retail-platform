@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { PredictionData } from '../types/dashboard.types';
-import { API_BASE_URL } from '../services/api';
+import { PredictionData } from './dashboard.types';
+import { API_BASE_URL } from '../../services/api';
 
 interface UseSSEPredictionReturn {
   prediction: PredictionData | null;

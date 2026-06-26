@@ -8,17 +8,17 @@ import '@ionic/react/css/normalize.css';
 import '@ionic/react/css/structure.css';
 import '@ionic/react/css/typography.css';
 
-import ChatIA from './pages/ChatIA';
-import Historique from './pages/Historique';
-import TabBar from './components/TabBar';
-import Dashboard from './pages/Dashboard';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import PrivateRoute from './components/PrivateRoute';
-import { isAuthenticated } from './services/auth';
-import { useFirebaseMessaging } from './hooks/useFirebaseMessaging';
-import Alerts from './pages/Alerts';
-import AlertDetail from './pages/AlertDetail';
+import ChatIA from '../features/chat/ChatIA';
+import Historique from '../features/historique/Historique';
+import TabBar from '../components/TabBar';
+import Dashboard from '../features/dashboard/Dashboard';
+import Login from '../features/auth/Login';
+import Register from '../features/auth/Register';
+import PrivateRoute from '../components/PrivateRoute';
+import { isAuthenticated } from '../services/auth';
+import { useFirebaseMessaging } from '../hooks/useFirebaseMessaging';
+import Alerts from '../features/alerts/Alerts';
+import AlertDetail from '../features/alerts/AlertDetail';
 
 setupIonicReact();
 

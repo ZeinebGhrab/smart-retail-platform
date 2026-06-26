@@ -369,14 +369,19 @@ anavid-smart-retail-platform/
 │   ├── .env.example                 # Modèle versionné, sans secrets
 │   ├── android/                     # Projet Android natif (généré par Capacitor)
 │   │   └── app/google-services.json # Identifiants Firebase Android — jamais commité
-│   └── src/
-│       ├── App.tsx                  # Routage (public: /login, /register · protégé: /dashboard, /chat, /predictions)
-│       ├── components/              # TabBar, Notifications, PrivateRoute
-│       ├── hooks/                   # useSSEPrediction.ts (flux SSE temps réel)
-│       ├── pages/                   # Login, Register, Dashboard, ChatIA, Historique
-│       ├── services/                # api.ts, auth.ts, chatBridge.ts (clients HTTP)
-│       ├── theme/                   # variables.css (thème Ionic)
-│       └── types/                   # Types partagés (dashboard.types.ts)
+│   └── src/                         # Architecture feature-based — voir src/README.md
+│       ├── README.md                # Vue d'ensemble de l'architecture frontend
+│       ├── app/                     # App.tsx — routage global (public: /login, /register · protégé: /dashboard, /chat, /predictions, /alerts)
+│       ├── components/               # Transverse : TabBar, Notifications, PrivateRoute
+│       ├── hooks/                    # Transverse : useFirebaseMessaging.ts (push FCM)
+│       ├── services/                 # Transverse : api.ts, auth.ts, fcm.ts (clients HTTP partagés)
+│       ├── theme/                    # variables.css (thème Ionic)
+│       └── features/                 # Un dossier par écran/domaine (composant + CSS + types/hooks/API propres)
+│           ├── auth/                 # Login, Register
+│           ├── dashboard/            # Dashboard, useSSEPrediction.ts, dashboard.types.ts
+│           ├── alerts/               # Alerts, AlertDetail, alert.model.ts, alerts.api.ts
+│           ├── chat/                 # ChatIA, chatBridge.ts
+│           └── historique/           # Historique
 │
 ├── modele-ML/                       # Microservice XGBoost — prédiction visiteurs (port 8001)
 │   ├── Dockerfile

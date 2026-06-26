@@ -1,6 +1,6 @@
 # `services/` — Clients HTTP vers le backend
 
-Couche d'accès réseau : fonctions `fetch` typées, sans aucune logique d'affichage. Les pages et composants n'appellent jamais `fetch()` directement (sauf cas isolés documentés dans `pages/README.md`) — ils passent par ces services.
+Couche d'accès réseau : fonctions `fetch` typées, sans aucune logique d'affichage. Les écrans et composants n'appellent jamais `fetch()` directement (sauf cas isolés documentés dans `features/README.md`) — ils passent par ces services ou par les fichiers `*.api.ts` locaux à un domaine (voir `features/`).
 
 ## `api.ts` — Client analytics
 
@@ -15,7 +15,7 @@ Définit `API_BASE_URL` (lu depuis `VITE_API_URL`, voir `.env`) et expose les fo
 | `getSummary()` | `GET /api/history/summary/` |
 | `getCameras()` | `GET /api/history/cameras/` |
 
-Toutes les réponses sont typées (`VisitorHistoryResponse`, `SummaryResponse`, etc.) et exportées pour être réutilisées dans `pages/`.
+Toutes les réponses sont typées (`VisitorHistoryResponse`, `SummaryResponse`, etc.) et exportées pour être réutilisées dans `features/dashboard/` et `features/historique/`.
 
 ## `auth.ts` — Client authentification + session locale
 
@@ -37,15 +37,6 @@ Consomme les endpoints `/api/auth/*` et gère la persistance de session côté c
 
 Les erreurs API sont normalisées via la classe `AuthApiError`, qui convertit les clés d'erreur du backend (`snake_case`, ex. `first_name`) en clés `camelCase` (`firstName`) directement utilisables dans le state des formulaires React.
 
-## `chatBridge.ts` — Pont inter-composants pour le Chat IA
-
-Petit bus d'événements en mémoire (pas de dépendance externe) permettant à n'importe quel composant d'envoyer un message pré-rempli vers `ChatIA.tsx`, même si celui-ci n'est pas encore monté :
-
-```ts
-sendToChat("Quel est le flux horaire d'hier ?");
-```
-
-Si aucun écouteur n'est enregistré au moment de l'appel (le Chat IA n'est pas affiché), le message est mis en attente (`_pending`) et délivré dès que `registerChatListener()` est appelé (montage de `ChatIA.tsx`). Utilisé notamment par `components/Notifications.tsx` pour rediriger une question vers le chat depuis une notification.
 
 ## `fcm.ts` — Client notifications push (FCM)
 

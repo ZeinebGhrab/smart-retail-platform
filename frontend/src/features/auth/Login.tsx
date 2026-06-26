@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { IonPage, IonContent } from '@ionic/react';
 import { useHistory } from 'react-router-dom';
-import { login, AuthApiError, requestPasswordReset, verifyResetCode, confirmPasswordReset } from '../services/auth';
+import { login, AuthApiError, requestPasswordReset, verifyResetCode, confirmPasswordReset } from '../../services/auth';
 import './Auth.css';
-import { useFirebaseMessaging } from '../hooks/useFirebaseMessaging';
+import { useFirebaseMessaging } from '../../hooks/useFirebaseMessaging';
 // ─── Inline SVG icons ────────────────────────────────────────
 const IconStore = () => (
   <svg width="32" height="32" viewBox="0 0 24 24" fill="none"

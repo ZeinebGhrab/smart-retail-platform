@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { IonContent, IonPage, IonFooter, IonToolbar, IonIcon } from '@ionic/react';
 import { micOutline, send } from 'ionicons/icons';
-import { API_BASE_URL } from '../services/api';
-import { registerChatListener, unregisterChatListener } from '../services/chatBridge';
+import { API_BASE_URL } from '../../services/api';
+import { registerChatListener, unregisterChatListener } from './chatBridge';
 import './ChatIA.css';
 
 interface Message {

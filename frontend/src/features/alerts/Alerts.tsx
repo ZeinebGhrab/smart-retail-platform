@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { IonPage, IonContent, useIonRouter } from '@ionic/react';
-import { SecurityAlert, AlertStatus, ALERT_STATUS_LABELS } from '../services/alert';
-import { fetchAlerts, AlertsPage, FILTER_TO_QUALIFICATION } from '../services/alerts';
+import { SecurityAlert, AlertStatus, ALERT_STATUS_LABELS } from './alert.model';
+import { fetchAlerts, AlertsPage, FILTER_TO_QUALIFICATION } from './alerts.api';
 import './Alerts.css';
 
 type FilterKey = 'tous' | AlertStatus;

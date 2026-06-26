@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { IonBadge, IonIcon, IonSpinner } from '@ionic/react';
 import { notificationsOutline, closeOutline, chevronBackOutline, calendarOutline, timeOutline, peopleOutline, trendingUpOutline } from 'ionicons/icons';
 import { useHistory } from 'react-router-dom';
-import { sendToChat } from '../services/chatBridge';
+import { sendToChat } from '../features/chat/chatBridge';
 import './Notifications.css';
 
 interface Notification {

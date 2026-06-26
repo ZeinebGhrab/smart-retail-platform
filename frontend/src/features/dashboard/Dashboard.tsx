@@ -14,17 +14,17 @@ import {
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 
-import { useSSEPrediction } from '../hooks/useSSEPrediction';
+import { useSSEPrediction } from './useSSEPrediction';
 import {
   AlertItem,
   PredictionData,
-} from '../types/dashboard.types';
+} from './dashboard.types';
 import './Dashboard.css';
 // FIX: import nommé — NotificationBell est un named export dans Notifications.tsx
-import { NotificationBell } from '../components/Notifications';
+import { NotificationBell } from '../../components/Notifications';
 import { useHistory } from 'react-router-dom';
-import { sendToChat } from '../services/chatBridge';
-import { getHourlyFlow, HourlyFlowResponse } from '../services/api';
+import { sendToChat } from '../chat/chatBridge';
+import { getHourlyFlow, HourlyFlowResponse } from '../../services/api';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip);
 

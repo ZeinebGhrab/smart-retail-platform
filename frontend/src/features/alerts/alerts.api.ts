@@ -1,5 +1,5 @@
-import { getAccessToken } from './auth';
-import { SecurityAlert, AlertStatus } from './alert';
+import { getAccessToken } from '../../services/auth';
+import { SecurityAlert, AlertStatus } from './alert.model';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { IonPage, IonContent, useIonRouter } from '@ionic/react';
 import { useParams } from 'react-router-dom';
-import { SecurityAlert, AlertStatus, ALERT_STATUS_LABELS } from '../services/alert';
-import { fetchAlertById, qualifyAlert } from '../services/alerts';
+import { SecurityAlert, AlertStatus, ALERT_STATUS_LABELS } from './alert.model';
+import { fetchAlertById, qualifyAlert } from './alerts.api';
 import './AlertDetail.css';
 
 // Les 4 options correspondent exactement aux boutons envoyés par le bot Telegram

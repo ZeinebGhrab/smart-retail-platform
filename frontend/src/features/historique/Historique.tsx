@@ -16,7 +16,7 @@ import {
   SummaryResponse,
   DailyHistoryRow,
   ForecastResponse,
-} from '../services/api';
+} from '../../services/api';
 import './Historique.css';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);

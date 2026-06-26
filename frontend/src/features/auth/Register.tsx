@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { IonPage, IonContent } from '@ionic/react';
 import { useHistory } from 'react-router-dom';
-import { register, AuthApiError } from '../services/auth';
+import { register, AuthApiError } from '../../services/auth';
 import './Auth.css';
 
 // ─── Inline SVG icons ────────────────────────────────────────
