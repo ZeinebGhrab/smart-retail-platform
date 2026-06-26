@@ -33,6 +33,7 @@ from .serializers import (
     NotificationStatsSerializer,
 )
 from .fcm_service import FCMService
+from ..utils import get_pagination_params
 
 # ──────────────────────────────────────────────────────────
 # SSE (Server-Sent Events) — Broadcast temps réel
@@ -131,10 +132,9 @@ def notifications_history(request):
         notifications = notifications.filter(is_read=False)
     
     # Pagination
-    limit = int(request.query_params.get('limit', 50))
-    offset = int(request.query_params.get('offset', 0))
+    limit, offset = get_pagination_params(request.query_params)
     total_count = notifications.count()
-    notifications = notifications[offset:offset+limit]
+    notifications = notifications[offset:offset + limit]
     
     serializer = PredictionNotificationListSerializer(notifications, many=True)
     return Response({

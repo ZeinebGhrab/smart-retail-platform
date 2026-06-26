@@ -16,6 +16,7 @@ from .serializers import (
     VideoQualificationSerializer,
     AlertSpaceSerializer,
 )
+from ..utils import get_pagination_params
 
 
 # ──────────────────────────────────────────────────────────
@@ -132,11 +133,10 @@ def videos_by_space(request, space_id):
     elif qualification == 'null':
         alerts = alerts.filter(qualification__isnull=True)
     
-    # Pagination manuelle
-    limit = int(request.query_params.get('limit', 50))
-    offset = int(request.query_params.get('offset', 0))
+    # Pagination
+    limit, offset = get_pagination_params(request.query_params)
     total_count = alerts.count()
-    alerts = alerts[offset:offset+limit]
+    alerts = alerts[offset:offset + limit]
     
     serializer = VideoTheftAlertListSerializer(alerts, many=True)
     return Response({
@@ -175,10 +175,9 @@ def videos_by_organization(request, organization_id):
         alerts = alerts.filter(qualification__isnull=True)
     
     # Pagination
-    limit = int(request.query_params.get('limit', 50))
-    offset = int(request.query_params.get('offset', 0))
+    limit, offset = get_pagination_params(request.query_params)
     total_count = alerts.count()
-    alerts = alerts[offset:offset+limit]
+    alerts = alerts[offset:offset + limit]
     
     serializer = VideoTheftAlertListSerializer(alerts, many=True)
     return Response({
@@ -212,10 +211,9 @@ def list_all_video_alerts(request):
         alerts = alerts.filter(qualification__isnull=True)
     
     # Pagination
-    limit = int(request.query_params.get('limit', 50))
-    offset = int(request.query_params.get('offset', 0))
+    limit, offset = get_pagination_params(request.query_params)
     total_count = alerts.count()
-    alerts = alerts[offset:offset+limit]
+    alerts = alerts[offset:offset + limit]
     
     serializer = VideoTheftAlertListSerializer(alerts, many=True)
     return Response({
