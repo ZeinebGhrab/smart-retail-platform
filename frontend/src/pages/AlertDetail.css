@@ -73,6 +73,11 @@
   padding: 16px;
 }
 
+/* Le dernier élément doit dépasser la tab bar fixe (~65px) */
+.alert-qualify-card {
+  margin-bottom: calc(16px + 72px);
+}
+
 .alert-meta-card h2,
 .alert-qualify-card h2 {
   margin: 0 0 12px;

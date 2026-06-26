@@ -27,6 +27,7 @@ urlpatterns = [
     path('videos/space/<int:space_id>/',               va_views.videos_by_space,        name='videos-by-space'),
     path('videos/organisation/<int:organisation_id>/', va_views.videos_by_organization, name='videos-by-org'),
     path('videos/<int:video_id>/qualify/',             va_views.qualify_video_alert,    name='videos-qualify'),
+    path('videos/<int:video_id>/',                     va_views.get_video_alert_detail, name='videos-detail'),
 
     # ── Prédictions N8N ────────────────────────────────────
     path('predictions/', include('history.n8n_predictions.urls', namespace='predictions')),

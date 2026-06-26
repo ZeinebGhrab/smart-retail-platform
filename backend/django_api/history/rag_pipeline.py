@@ -395,6 +395,15 @@ def run_rag_pipeline(question: str, history: list[dict[str, str]] | None = None)
         )
     except requests.exceptions.Timeout:
         answer = "⚠️ Timeout : le modèle met trop de temps à répondre."
+    except requests.exceptions.HTTPError as exc:
+        if exc.response is not None and exc.response.status_code == 500:
+            answer = (
+                f"⚠️ Modèle '{OLLAMA_MODEL}' non disponible dans Ollama.\n"
+                f"Exécutez : `docker exec shop-anavid-int-ollama ollama pull {OLLAMA_MODEL}`\n"
+                f"Puis relancez votre question."
+            )
+        else:
+            answer = f"⚠️ Erreur Ollama HTTP {getattr(exc.response, 'status_code', '?')} : {exc}"
     except Exception as exc:
         answer = f"⚠️ Erreur LLM : {exc}"
 

@@ -264,8 +264,9 @@ def qualify_video_alert(request, video_id):
     {
         \"status\": \"APPROVED\" | \"REJECTED\" | \"PENDING\",
         \"qualification\": \"vol\" | \"suspicious\" | \"false_alarm\",
-        \"reviewer\": \"Nom du relecteur\",
-        \"notes\": \"Commentaires supplémentaires\"
+        \"comment\": \"Commentaires supplémentaires\",
+        \"assigned_to\": \"email@relecteur.com\",
+        \"approval_result\": \"TP\" | \"TN\" | \"FP\" | \"FN\"
     }
     """
     try:
@@ -275,28 +276,49 @@ def qualify_video_alert(request, video_id):
             {'error': f'Alerte vidéo {video_id} non trouvée'},
             status=status.HTTP_404_NOT_FOUND
         )
-    
+
     serializer = VideoQualificationSerializer(data=request.data)
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     validated_data = serializer.validated_data
-    
-    # Mettre à jour les champs
+
+    # Mettre à jour uniquement les champs modifiés
+    fields_to_update = []
+
     if 'status' in validated_data:
         video.status = validated_data['status']
-    
+        fields_to_update.append('status')
+
     if 'qualification' in validated_data:
         video.qualification = validated_data['qualification']
-    
-    if 'reviewer' in validated_data:
-        video.reviewer = validated_data['reviewer']
-        video.reviewed_at = timezone.now()
-    
-    if 'notes' in validated_data:
-        video.notes = validated_data['notes']
-    
-    video.save()
+        video.qualification_update_date = timezone.now()
+        fields_to_update.append('qualification')
+        fields_to_update.append('qualification_update_date')
+
+    if 'comment' in validated_data:
+        video.comment = validated_data['comment']
+        fields_to_update.append('comment')
+
+    if 'assigned_to' in validated_data:
+        video.assigned_to = validated_data['assigned_to']
+        fields_to_update.append('assigned_to')
+
+    if 'approval_result' in validated_data:
+        video.approval_result = validated_data['approval_result']
+        fields_to_update.append('approval_result')
+
+    if not fields_to_update:
+        return Response(
+            {'error': 'Aucun champ à mettre à jour.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # update_date est NOT NULL en BD — toujours mis à jour
+    video.update_date = timezone.now()
+    fields_to_update.append('update_date')
+
+    video.save(update_fields=fields_to_update)
     
     response_serializer = VideoTheftAlertDetailSerializer(video)
     return Response({
