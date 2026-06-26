@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { IonContent, IonPage } from '@ionic/react';
 import {
   Chart as ChartJS,
@@ -27,80 +27,114 @@ const CAMERA_FILTERS = [
   { value: 'Porte_sud',  label: 'Porte Sud' },
 ];
 
+const PAGE_SIZE = 10;
+
 function formatDateShort(iso: string) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
 }
 
-const Historique: React.FC = () => {
-  const [camera, setCamera] = useState<string>('toutes');
-  const [summary, setSummary] = useState<SummaryResponse | null>(null);
-  const [rows, setRows] = useState<DailyHistoryRow[]>([]);
-  const [forecast, setForecast] = useState<ForecastResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+// Réponse paginée de l'API visitor_history
+interface HistoryPage {
+  count: number;
+  limit: number;
+  offset: number;
+  results: DailyHistoryRow[];
+}
 
+const Historique: React.FC = () => {
+  const [camera, setCamera]     = useState<string>('toutes');
+  const [summary, setSummary]   = useState<SummaryResponse | null>(null);
+  const [forecast, setForecast] = useState<ForecastResponse | null>(null);
+
+  // Graphique : 14 jours fixes (offset 0)
+  const [chartRows, setChartRows] = useState<DailyHistoryRow[]>([]);
+
+  // Tableau paginé
+  const [histPage, setHistPage]   = useState<HistoryPage | null>(null);
+  const [tableOffset, setTableOffset] = useState(0);
+
+  const [loading, setLoading]       = useState(true);
+  const [tableLoading, setTableLoading] = useState(false);
+  const [error, setError]           = useState<string | null>(null);
+
+  // ── Chargement initial (summary + forecast + graphique + page 1 tableau) ──
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setTableOffset(0);
 
     const cameraParam = camera === 'toutes' ? undefined : camera;
 
     Promise.all([
       getSummary(),
-      getVisitorHistory({ camera: cameraParam }),
       getForecast({ camera: cameraParam }),
+      // Graphique : 14 derniers jours
+      getVisitorHistory({ camera: cameraParam, limit: '14', offset: '0' } as any),
+      // Tableau : première page
+      getVisitorHistory({ camera: cameraParam, limit: String(PAGE_SIZE), offset: '0' } as any),
     ])
-      .then(([summaryRes, historyRes, forecastRes]) => {
+      .then(([summaryRes, forecastRes, chartRes, tableRes]) => {
         if (cancelled) return;
         setSummary(summaryRes);
-        // Affiche les 14 derniers jours, du plus ancien au plus récent (pour le graphe)
-        setRows(historyRes.results.slice(-14));
         setForecast(forecastRes);
+        // Le graphique utilise les résultats du plus ancien au plus récent
+        setChartRows((chartRes as any).results ?? []);
+        setHistPage(tableRes as unknown as HistoryPage);
       })
-      .catch((err) => {
-        if (!cancelled) setError(err.message || 'Erreur de chargement');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      .catch((err) => { if (!cancelled) setError(err.message || 'Erreur de chargement'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [camera]);
 
-  const tableRows = useMemo(() => [...rows].reverse(), [rows]);
+  // ── Changement de page du tableau ─────────────────────────────
+  const loadTablePage = useCallback((newOffset: number) => {
+    setTableLoading(true);
+    const cameraParam = camera === 'toutes' ? undefined : camera;
+    getVisitorHistory({ camera: cameraParam, limit: String(PAGE_SIZE), offset: String(newOffset) } as any)
+      .then((res) => {
+        setHistPage(res as unknown as HistoryPage);
+        setTableOffset(newOffset);
+      })
+      .finally(() => setTableLoading(false));
+  }, [camera]);
 
+  // ── Données tableau ────────────────────────────────────────────
+  const tableRows   = histPage?.results ?? [];
+  const totalCount  = histPage?.count   ?? 0;
+  const totalPages  = Math.ceil(totalCount / PAGE_SIZE);
+  const currentPage = Math.floor(tableOffset / PAGE_SIZE) + 1;
+
+  const pageNumbers = useMemo(() => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    const start = Math.max(1, currentPage - 2);
+    const end   = Math.min(totalPages, start + 4);
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  }, [totalPages, currentPage]);
+
+  // ── Graphique ──────────────────────────────────────────────────
   const chartData = useMemo(() => ({
-    labels: rows.map((r) => formatDateShort(r.date)),
-    datasets: [
-      {
-        label: 'Visiteurs',
-        data: rows.map((r) => r.visit_Count),
-        backgroundColor: 'rgba(37, 99, 235, 0.55)',
-        hoverBackgroundColor: '#2563eb',
-        borderRadius: 4,
-        maxBarThickness: 22,
-      },
-    ],
-  }), [rows]);
+    labels: chartRows.map((r) => formatDateShort(r.date)),
+    datasets: [{
+      label: 'Visiteurs',
+      data: chartRows.map((r) => r.visit_Count),
+      backgroundColor: 'rgba(37, 99, 235, 0.55)',
+      hoverBackgroundColor: '#2563eb',
+      borderRadius: 4,
+      maxBarThickness: 22,
+    }],
+  }), [chartRows]);
 
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: { legend: { display: false } },
     scales: {
-      x: {
-        grid: { display: false },
-        ticks: { color: '#6b7280', font: { size: 9 }, maxRotation: 0 },
-      },
-      y: {
-        grid: { color: 'rgba(15,23,42,0.07)' },
-        ticks: { color: '#6b7280', font: { size: 9 }, maxTicksLimit: 5 },
-      },
+      x: { grid: { display: false }, ticks: { color: '#6b7280', font: { size: 9 }, maxRotation: 0 } },
+      y: { grid: { color: 'rgba(15,23,42,0.07)' }, ticks: { color: '#6b7280', font: { size: 9 }, maxTicksLimit: 5 } },
     },
   } as const;
 
@@ -115,7 +149,6 @@ const Historique: React.FC = () => {
             <div className="hist-subtitle">Analyse de fréquentation par caméra</div>
           </div>
         </div>
-
         <div className="hist-filter-row">
           {CAMERA_FILTERS.map((f) => (
             <button
@@ -161,9 +194,7 @@ const Historique: React.FC = () => {
                   <span className="ti ti-users" aria-hidden="true" /> Total visiteurs
                 </div>
                 <div className="hist-kpi-value">{summary.total_visits.toLocaleString('fr-FR')}</div>
-                <div className="hist-kpi-sub">
-                  {summary.period.start_date} → {summary.period.end_date}
-                </div>
+                <div className="hist-kpi-sub">{summary.period.start_date} → {summary.period.end_date}</div>
               </div>
 
               <div className="hist-kpi-card">
@@ -195,23 +226,26 @@ const Historique: React.FC = () => {
               </div>
             </div>
 
-            {/* Chart */}
+            {/* Graphique */}
             <div className="hist-chart-card">
               <div className="hist-chart-header">
                 <span className="hist-chart-title">Tendance — 14 derniers jours</span>
-                <span className="hist-chart-badge">{rows.length} jours</span>
+                <span className="hist-chart-badge">{chartRows.length} jours</span>
               </div>
               <div className="hist-chart-wrap">
                 <Bar data={chartData} options={chartOptions} />
               </div>
             </div>
 
-            {/* Table → liste de cartes */}
+            {/* ── Tableau paginé ───────────────────────────────── */}
             <div className="hist-section-header">
               <span className="hist-section-title">Détail journalier</span>
+              {totalCount > 0 && (
+                <span className="hist-section-count">{totalCount} jours au total</span>
+              )}
             </div>
 
-            <div className="hist-row-list">
+            <div className={`hist-row-list ${tableLoading ? 'hist-table-loading' : ''}`}>
               {tableRows.map((row) => (
                 <div key={`${row.date}-${row.camera}`} className="hist-row-card">
                   <div className="hist-row-main">
@@ -233,6 +267,65 @@ const Historique: React.FC = () => {
                 </div>
               ))}
             </div>
+
+            {/* ── Contrôles de pagination ──────────────────────── */}
+            {totalPages > 1 && (
+              <div className="hist-pagination">
+                <button
+                  className="hist-page-btn"
+                  disabled={currentPage === 1 || tableLoading}
+                  onClick={() => loadTablePage((currentPage - 2) * PAGE_SIZE)}
+                  aria-label="Page précédente"
+                >
+                  ‹
+                </button>
+
+                {pageNumbers[0] > 1 && (
+                  <>
+                    <button className="hist-page-btn" onClick={() => loadTablePage(0)}>1</button>
+                    {pageNumbers[0] > 2 && <span className="hist-page-ellipsis">…</span>}
+                  </>
+                )}
+
+                {pageNumbers.map((p) => (
+                  <button
+                    key={p}
+                    className={`hist-page-btn ${p === currentPage ? 'active' : ''}`}
+                    disabled={tableLoading}
+                    onClick={() => loadTablePage((p - 1) * PAGE_SIZE)}
+                  >
+                    {p}
+                  </button>
+                ))}
+
+                {pageNumbers[pageNumbers.length - 1] < totalPages && (
+                  <>
+                    {pageNumbers[pageNumbers.length - 1] < totalPages - 1 && (
+                      <span className="hist-page-ellipsis">…</span>
+                    )}
+                    <button
+                      className="hist-page-btn"
+                      onClick={() => loadTablePage((totalPages - 1) * PAGE_SIZE)}
+                    >
+                      {totalPages}
+                    </button>
+                  </>
+                )}
+
+                <button
+                  className="hist-page-btn"
+                  disabled={currentPage === totalPages || tableLoading}
+                  onClick={() => loadTablePage(currentPage * PAGE_SIZE)}
+                  aria-label="Page suivante"
+                >
+                  ›
+                </button>
+
+                <span className="hist-page-info">
+                  Page {currentPage}/{totalPages}
+                </span>
+              </div>
+            )}
 
             <div style={{ height: 16 }} />
           </>

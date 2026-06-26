@@ -9,12 +9,44 @@ from . import data as vd
 
 @api_view(['GET'])
 def visitor_history(request):
-    """GET /api/history/visitors/"""
-    return Response(vd.get_visitor_history(
+    """
+    GET /api/history/visitors/
+    Paramètres optionnels :
+    - start_date, end_date : bornes de date (YYYY-MM-DD)
+    - camera               : Porte_nord | Porte_sud
+    - limit                : taille de page (défaut 14)
+    - offset               : décalage (défaut 0)
+    """
+    full = vd.get_visitor_history(
         start_date=request.query_params.get('start_date'),
         end_date=request.query_params.get('end_date'),
         camera=request.query_params.get('camera'),
-    ))
+    )
+
+    # ── Pagination ──────────────────────────────────────────
+    try:
+        limit = int(request.query_params.get('limit', 14))
+    except (ValueError, TypeError):
+        limit = 14
+    try:
+        offset = int(request.query_params.get('offset', 0))
+    except (ValueError, TypeError):
+        offset = 0
+
+    all_results = full['results']
+    total_count = len(all_results)
+    page_results = all_results[offset: offset + limit]
+
+    return Response({
+        'start_date':  full['start_date'],
+        'end_date':    full['end_date'],
+        'camera':      full['camera'],
+        'count':       total_count,          # total tous résultats
+        'limit':       limit,
+        'offset':      offset,
+        'results':     page_results,         # page courante seulement
+    })
+
 
 @api_view(['GET'])
 def visitor_count(request):
@@ -24,6 +56,7 @@ def visitor_count(request):
         camera=request.query_params.get('camera'),
     ))
 
+
 @api_view(['GET'])
 def hourly_flow(request):
     """GET /api/history/visitors/hourly/"""
@@ -31,6 +64,7 @@ def hourly_flow(request):
         date=request.query_params.get('date'),
         camera=request.query_params.get('camera'),
     ))
+
 
 @api_view(['GET'])
 def forecast(request):
@@ -40,10 +74,12 @@ def forecast(request):
         camera=request.query_params.get('camera'),
     ))
 
+
 @api_view(['GET'])
 def summary(request):
     """GET /api/history/summary/"""
     return Response(vd.get_summary())
+
 
 @api_view(['GET'])
 def cameras(request):

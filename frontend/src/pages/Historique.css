@@ -320,3 +320,41 @@
   color: var(--hist-muted);
   background: rgba(15, 23, 42, 0.05);
 }
+/* ── Section header count ───────────────────────────────────── */
+.hist-section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px 8px;
+}
+.hist-section-count {
+  font-size: 11px; color: #64748b;
+}
+
+/* ── Tableau en chargement ──────────────────────────────────── */
+.hist-table-loading { opacity: .5; pointer-events: none; transition: opacity .2s; }
+
+/* ── Pagination détail journalier ───────────────────────────── */
+.hist-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 14px 16px 8px;
+}
+.hist-page-btn {
+  min-width: 34px; height: 34px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid #e2e6f0;
+  background: #f8fafc;
+  color: #374151;
+  font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  transition: background .13s, border-color .13s, color .13s;
+  display: flex; align-items: center; justify-content: center;
+}
+.hist-page-btn:hover:not(:disabled) { background: rgba(37,99,235,.08); border-color: #bfcfee; color: #1d4ed8; }
+.hist-page-btn.active { background: #2563eb; border-color: #2563eb; color: #fff; }
+.hist-page-btn:disabled { opacity: .4; cursor: not-allowed; }
+.hist-page-ellipsis { color: #94a3b8; font-size: 13px; padding: 0 2px; line-height: 34px; }
+.hist-page-info { font-size: 11px; color: #64748b; white-space: nowrap; margin-left: 4px; }

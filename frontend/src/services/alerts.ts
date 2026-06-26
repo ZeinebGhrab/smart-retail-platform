@@ -9,10 +9,6 @@ const headers = () => ({
 });
 
 // ── Mapping BD → AlertStatus frontend ──────────────────────────
-// Règle : seul le champ `qualification` détermine le statut affiché.
-// `status` BD ('APPROVED'/'REJECTED'/'PENDING') reflète la détection IA,
-// pas la qualification humaine. Tant que `qualification` est null,
-// l'alerte est "en attente" de qualification humaine.
 function mapStatus(qualification: string | null): AlertStatus {
   if (!qualification) return 'en_attente';
   const map: Record<string, AlertStatus> = {
@@ -40,28 +36,68 @@ function mapVideo(v: any): SecurityAlert {
   };
 }
 
-// ── Fetch toutes les alertes ───────────────────────────────────
-export async function fetchAlerts(spaceId?: number, orgId?: number): Promise<SecurityAlert[]> {
+// ── Réponse paginée ────────────────────────────────────────────
+export interface AlertsPage {
+  count: number;
+  limit: number;
+  offset: number;
+  results: SecurityAlert[];
+}
+
+// ── Fetch alertes (paginées) ───────────────────────────────────
+// Mapping filtre frontend → qualification backend
+export const FILTER_TO_QUALIFICATION: Record<string, string | null | undefined> = {
+  tous:                      undefined,   // pas de filtre
+  en_attente:                'null',      // qualification IS NULL
+  vol_confirme_interpelle:   'vol',
+  comportement_suspect:      'suspicious',
+  fausse_alerte:             'false_alarm',
+};
+
+export async function fetchAlerts(
+  options: {
+    spaceId?: number;
+    orgId?: number;
+    limit?: number;
+    offset?: number;
+    qualification?: string | null;  // valeur backend : 'vol' | 'suspicious' | 'false_alarm' | 'null' | undefined
+  } = {}
+): Promise<AlertsPage> {
+  const { spaceId, orgId, limit = 10, offset = 0, qualification } = options;
+
   let url = '';
   if (spaceId)     url = `${API}/videos/space/${spaceId}/`;
   else if (orgId)  url = `${API}/videos/organisation/${orgId}/`;
   else             url = `${API}/videos/all/`;
 
-  const res = await fetch(url, { headers: headers() });
+  const params = new URLSearchParams({
+    limit:  String(limit),
+    offset: String(offset),
+  });
+  // Filtre par qualification (envoyé seulement si défini)
+  if (qualification !== undefined && qualification !== null) {
+    params.set('qualification', qualification);
+  }
+
+  const res = await fetch(`${url}?${params}`, { headers: headers() });
   if (!res.ok) throw new Error('Erreur chargement alertes');
   const data = await res.json();
-  // Le backend retourne { count, results: [...] }
-  const items = Array.isArray(data) ? data : (data.results ?? []);
-  return items.map(mapVideo);
+
+  const items: SecurityAlert[] = (Array.isArray(data) ? data : (data.results ?? [])).map(mapVideo);
+  return {
+    count:   data.count  ?? items.length,
+    limit:   data.limit  ?? limit,
+    offset:  data.offset ?? offset,
+    results: items,
+  };
 }
 
 // ── Fetch une alerte par id ────────────────────────────────────
 export async function fetchAlertById(id: string): Promise<SecurityAlert> {
   const res = await fetch(`${API}/videos/${id}/`, { headers: headers() });
   if (!res.ok) {
-    // Fallback : recharge la liste et filtre
-    const all = await fetchAlerts();
-    const found = all.find(a => a.id === id);
+    const page = await fetchAlerts();
+    const found = page.results.find(a => a.id === id);
     if (!found) throw new Error('Alerte introuvable');
     return found;
   }
@@ -69,7 +105,6 @@ export async function fetchAlertById(id: string): Promise<SecurityAlert> {
 }
 
 // ── Qualifier une alerte ───────────────────────────────────────
-// Mapping AlertStatus (frontend) → champs réels de la BD
 type QualifyPayload = {
   status: string;
   qualification?: string;
@@ -94,7 +129,6 @@ export async function qualifyAlert(id: string, status: AlertStatus): Promise<Sec
   });
   if (!res.ok) throw new Error('Erreur qualification');
   const data = await res.json();
-  // La vue retourne { status, message, alert }
   return mapVideo(data.alert ?? data);
 }
 
