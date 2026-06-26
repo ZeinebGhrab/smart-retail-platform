@@ -314,7 +314,7 @@ def receive_daily_report(request):
     missing = required_fields - set(payload.keys())
     if missing:
         return Response(
-            {'error': f'Champs manquants : {', '.join(missing)}'},
+            {'error': f"Champs manquants : {', '.join(missing)}"},
             status=status.HTTP_400_BAD_REQUEST
         )
     
