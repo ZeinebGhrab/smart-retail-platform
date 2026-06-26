@@ -5,10 +5,14 @@
 # ============================================================
 
 from django.urls import path, include
+from history.chat_view import chat
 
 app_name = 'history'
 
 urlpatterns = [
+    # Chat IA — RAG (Llama 3.2 + ChromaDB)
+    path('chat/', chat, name='chat'),
+
     # Routes pour les alertes vidéo
     path('video-alerts/', include('history.video_alerts.urls', namespace='video-alerts')),
     
