@@ -114,7 +114,7 @@ Question utilisateur (langage naturel)
 
 ```bash
 git clone https://github.com/ZeinebGhrab/shop-analytics-internship-anavid.git
-cd anavid-smart-retail-platform
+cd shop-analytics-internship-anavid
 
 # 1. Configurer les secrets (jamais commités, voir section 9)
 cp example.env .env
