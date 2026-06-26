@@ -351,7 +351,7 @@ curl "http://localhost:8001/predict?date=2026-07-01"
 ## 9. Structure du projet
 
 ```
-anavid-smart-retail-platform/
+shop-analytics-internship-anavid/
 │
 ├── docker-compose.yml               # Orchestration des 6 services
 ├── Makefile                         # Commandes raccourcies (Linux/Mac)
