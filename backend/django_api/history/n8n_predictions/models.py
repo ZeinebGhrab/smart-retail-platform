@@ -12,7 +12,7 @@ class FCMToken(models.Model):
     Firebase Cloud Messaging Token.
     Stocke les tokens FCM des appareils clients pour les notifications push.
     """
-    token = models.TextField(unique=True, help_text="Token FCM unique de l'appareil")
+    token = models.CharField(max_length=255, unique=True, help_text="Token FCM unique de l'appareil")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     device_info = models.CharField(max_length=255, blank=True, help_text="Infos sur l'appareil (OS, version)")

@@ -275,6 +275,72 @@ def prediction_stream(request):
 # Réception de rapports quotidiens depuis N8N
 # ──────────────────────────────────────────────────────────
 
+# Mapping niveau_affluence : valeurs françaises n8n → codes Django
+_AFFLUENCE_MAP = {
+    'faible':      'low',
+    'modéré':      'medium',
+    'modere':      'medium',
+    'élevé':       'high',
+    'eleve':       'high',
+    'très élevé':  'very_high',
+    'tres eleve':  'very_high',
+    # codes déjà corrects
+    'low':         'low',
+    'medium':      'medium',
+    'high':        'high',
+    'very_high':   'very_high',
+}
+
+# Mapping type : valeurs n8n → codes Django
+_TYPE_MAP = {
+    'llm_report':  'report',
+    'prediction':  'prediction',
+    'report':      'report',
+    'alert':       'alert',
+    'custom':      'custom',
+}
+
+
+def _normalize_payload(payload: dict) -> dict:
+    """
+    Normalise le payload n8n avant sauvegarde :
+    - Génère 'title' si absent
+    - Normalise 'type' (llm_report → report)
+    - Normalise 'niveau_affluence' (Élevé → high)
+    - Remonte 'generated_at' depuis le payload si présent
+    """
+    payload = dict(payload)  # copie mutable
+    prediction = payload.get('prediction', {})
+
+    # -- type
+    raw_type = payload.get('type', 'prediction')
+    payload['type'] = _TYPE_MAP.get(raw_type.lower(), 'report')
+
+    # -- title : généré automatiquement si absent
+    if not payload.get('title'):
+        date_str = payload.get('date', '')
+        payload['title'] = f"Rapport IA – {date_str}" if date_str else "Rapport IA"
+
+    # -- niveau_affluence dans prediction{}
+    raw_niveau = str(prediction.get('niveau_affluence', 'medium')).lower()
+    # Essai exact puis sans accents
+    import unicodedata
+    def strip_accents(s):
+        return ''.join(
+            c for c in unicodedata.normalize('NFD', s)
+            if unicodedata.category(c) != 'Mn'
+        )
+    normalized_niveau = (
+        _AFFLUENCE_MAP.get(raw_niveau)
+        or _AFFLUENCE_MAP.get(strip_accents(raw_niveau))
+        or 'medium'
+    )
+    prediction['niveau_affluence'] = normalized_niveau
+    payload['prediction'] = prediction
+
+    return payload
+
+
 @extend_schema(
     tags=["Rapport quotidien — N8N"],
     summary="Réception d'une prédiction depuis N8N",
@@ -285,48 +351,49 @@ def receive_daily_report(request):
     """
     POST /api/predictions/daily-report/
     Reçoit un rapport quotidien de N8N, le sauvegarde en BD, et le broadcast via SSE.
-    
-    Payload attendu :
+
+    Payload minimal accepté (format n8n) :
     {
-        \"type\": \"prediction\",
-        \"title\": \"Prédiction du 2026-06-26\",
-        \"message\": \"Texte du rapport...\",
-        \"date\": \"2026-06-26\",
-        \"prediction\": {
-            \"visiteurs_prevus\": 150,
-            \"profil_dominant\": \"Femmes 25-35\",
-            \"niveau_affluence\": \"medium\",
-            \"heure_pointe\": \"14h30\"
-        },
-        \"model\": \"llama3.2:3b-instruct-q4_K_M\",
-        \"confidence_score\": 0.85
+        "type": "llm_report",          ← ou "prediction", "report", etc.
+        "date": "2026-06-26",
+        "generated_at": "2026-06-26T06:00:00Z",
+        "message": "Texte du rapport LLM...",
+        "prediction": {
+            "visiteurs_prevus": 150,
+            "profil_dominant": "Femmes 25-35",
+            "niveau_affluence": "Élevé",  ← valeurs FR ou EN acceptées
+            "heure_pointe": "14h30"
+        }
     }
+    Le champ "title" est optionnel : généré automatiquement si absent.
     """
     payload = request.data
-    
+
     if not payload:
         return Response(
             {'error': 'Payload vide.'},
             status=status.HTTP_400_BAD_REQUEST
         )
-    
-    required_fields = {'type', 'title', 'message', 'date', 'prediction'}
+
+    required_fields = {'message', 'date', 'prediction'}
     missing = required_fields - set(payload.keys())
     if missing:
         return Response(
             {'error': f"Champs manquants : {', '.join(missing)}"},
             status=status.HTTP_400_BAD_REQUEST
         )
-    
+
     try:
+        payload = _normalize_payload(payload)
+
         # Générer UUID unique si absent
         notification_uuid = payload.get('notification_uuid') or str(uuid.uuid4())
-        
+
         # Créer la notification en BD
         prediction_data = payload.get('prediction', {})
         notification = PredictionNotification.objects.create(
             notification_uuid=notification_uuid,
-            type=payload.get('type', 'prediction'),
+            type=payload.get('type', 'report'),
             title=payload.get('title', ''),
             message=payload.get('message', ''),
             date=payload.get('date'),
@@ -460,12 +527,12 @@ def send_fcm_notification(request):
     )
     
     return Response({
-        'status': 'ok',
-        'log_id': log.id,
-        'sent': result['sent'],
-        'failed': result['failed'],
-        'total': result['total'],
-        'errors': result['errors'][:10],  # Limiter les erreurs
+    'status': 'ok',
+    'log_id': log.id,
+    'sent': result.get('sent', 0),
+    'failed': result.get('failed', 0),
+    'total': result.get('total', result.get('sent', 0) + result.get('failed', 0)),
+    'errors': result.get('errors', [])[:10],
     })
 
 

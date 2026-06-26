@@ -29,6 +29,16 @@ urlpatterns = [
     path('videos/<int:video_id>/qualify/',             va_views.qualify_video_alert,    name='videos-qualify'),
     path('videos/<int:video_id>/',                     va_views.get_video_alert_detail, name='videos-detail'),
 
+    # Alias notifications (frontend appelle /api/notifications/...)
+
+
+    path('notifications/latest/',                          n8n_views.latest_notification,         name='notif-latest'),
+    path('notifications/history/',                         n8n_views.notifications_history,       name='notif-history'),
+    path('notifications/unread-count/',                    n8n_views.unread_notifications_count,  name='notif-unread-count'),
+    path('notifications/mark-all-read/',                   n8n_views.mark_all_notifications_read, name='notif-mark-all'),
+    path('notifications/<int:notification_id>/mark-read/', n8n_views.mark_notification_read,      name='notif-mark-read'),
+    path('notifications/<int:notification_id>/',           n8n_views.get_notification_detail,     name='notif-detail'),
+    
     # ── Prédictions N8N ────────────────────────────────────
     path('predictions/', include('history.n8n_predictions.urls', namespace='predictions')),
 

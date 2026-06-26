@@ -19,7 +19,7 @@ interface Notification {
   is_read: boolean; // ← 
 }
 
-const API = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000/api';
+const API = ((import.meta as any).env?.VITE_API_URL || 'http://localhost:8000/api') + '/predictions';
 const POLL_MS = 5000;
 
 const fmtTime = (iso: string) => {
