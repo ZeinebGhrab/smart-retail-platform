@@ -113,7 +113,7 @@ Question utilisateur (langage naturel)
 ### Premier lancement
 
 ```bash
-git clone <url-du-repo>
+git clone https://github.com/ZeinebGhrab/shop-analytics-internship-anavid.git
 cd anavid-smart-retail-platform
 
 # 1. Configurer les secrets (jamais commités, voir section 9)
