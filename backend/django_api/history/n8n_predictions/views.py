@@ -246,16 +246,26 @@ def prediction_stream(request):
     def event_stream():
         try:
             # Envoyer un événement de connexion
-            yield "event: connected\\ndata: {}\\n\\n"
+            # IMPORTANT : ce sont de vrais retours à la ligne (\n), pas la
+            # séquence littérale "\\n". Le protocole SSE exige des retours
+            # à la ligne réels pour séparer "event:" / "data:" et terminer
+            # le message ; avec des "\\n" échappés, EventSource côté
+            # frontend ne reçoit jamais d'événement valide (ni onmessage,
+            # ni les listeners "llm_report"/"prediction").
+            yield "event: connected\ndata: {}\n\n"
             
             # Attendre les événements
             while True:
                 try:
                     payload = q.get(timeout=30)
-                    yield f"event: prediction\\ndata: {json.dumps(payload, ensure_ascii=False)}\\n\\n"
+                    # On émet sous les deux noms pour rester compatible avec
+                    # tous les listeners déjà enregistrés côté frontend
+                    # (useSSEPrediction écoute "llm_report" ET "prediction").
+                    event_name = 'llm_report' if payload.get('type') == 'llm_report' else 'prediction'
+                    yield f"event: {event_name}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
                 except queue.Empty:
                     # Keep-alive toutes les 30 secondes
-                    yield ": keepalive\\n\\n"
+                    yield ": keepalive\n\n"
         except GeneratorExit:
             pass
         finally:
@@ -408,14 +418,21 @@ def receive_daily_report(request):
             metadata=payload.get('metadata', {}),
         )
         
-        # Broadcast via SSE
+        # Broadcast via SSE — on diffuse le payload normalisé (même
+        # contenu que celui qui vient d'être sauvegardé en BD), pas le
+        # payload brut n8n, pour que le frontend reçoive une structure
+        # cohérente quel que soit le format exact envoyé par n8n.
+        broadcast_payload = dict(payload)
+        broadcast_payload['notification_id'] = notification.id
+        broadcast_payload['generated_at'] = notification.generated_at.isoformat()
+
         with _sse_lock:
             active_clients = list(_sse_clients)
         
         delivered = 0
         for q in active_clients:
             try:
-                q.put_nowait(payload)
+                q.put_nowait(broadcast_payload)
                 delivered += 1
             except Exception:
                 pass

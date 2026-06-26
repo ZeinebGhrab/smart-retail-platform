@@ -59,6 +59,12 @@ class PredictionNotificationListSerializer(serializers.ModelSerializer):
             'tags_list',
         ]
         read_only_fields = ['id', 'notification_uuid', 'generated_at']
+    
+    def get_confidence_percentage(self, obj):
+        return obj.get_confidence_percentage()
+    
+    def get_tags_list(self, obj):
+        return obj.get_tags_list()
 
 
 class PredictionNotificationDetailSerializer(serializers.ModelSerializer):

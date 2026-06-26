@@ -17,9 +17,7 @@ import { Line } from 'react-chartjs-2';
 import { useSSEPrediction } from '../hooks/useSSEPrediction';
 import {
   AlertItem,
-  NotificationItem,
   PredictionData,
-  NotifIconType,
 } from '../types/dashboard.types';
 import './Dashboard.css';
 // FIX: import nommé — NotificationBell est un named export dans Notifications.tsx
@@ -48,18 +46,19 @@ function shiftDate(base: string, offsetDays: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+// NOTE: l'ancienne constante INITIAL_NOTIFICATIONS (données factices
+// "Affluence critique", "Caisse 4", "Stock faible"…) a été supprimée.
+// Elle alimentait un panneau "Notifications" local au Dashboard, jamais
+// branché sur le backend, qui masquait le vrai panneau "Notifications IA"
+// (NotificationBell) connecté à l'API /predictions/notifications/history/.
+//
+// INITIAL_ALERTS reste : il alimente la section "Alertes en direct"
+// (KPI "Alertes actives" + liste AlertRow), distincte du panneau de
+// notifications et non concernée par ce nettoyage.
 const INITIAL_ALERTS: AlertItem[] = [
   { id: 1, severity: 'critical', title: 'Affluence critique — Porte Nord',  subtitle: 'Capacité dépassée de 18% · Zone A',      time: 'Il y a 3 min',       unread: true  },
   { id: 2, severity: 'warning',  title: "Caisse 4 — file d'attente longue", subtitle: '8 personnes · Ouvrir caisse 5',          time: 'Il y a 7 min',       unread: true  },
   { id: 3, severity: 'info',     title: 'Prédiction reçue — n8n',           subtitle: 'Rapport quotidien généré par Llama 3.2', time: "Aujourd'hui, 06:00", unread: false },
-];
-
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  { id: 1, icon: 'brain',         iconType: 'green' as NotifIconType, title: 'Rapport IA — Prédiction quotidienne', msg: 'En attente du prochain rapport n8n…',                              time: "Aujourd'hui, 06:00", unread: false, isPrediction: true },
-  { id: 2, icon: 'users',         iconType: 'red'   as NotifIconType, title: 'Affluence critique — Porte Nord',     msg: 'Capacité dépassée de 18%. Renforcement du personnel recommandé.',   time: 'Il y a 3 min',       unread: true  },
-  { id: 3, icon: 'cash-register', iconType: 'amber' as NotifIconType, title: 'Caisse 4 — file longue',              msg: '8 personnes en attente. Ouvrir caisse 5 immédiatement.',            time: 'Il y a 7 min',       unread: true  },
-  { id: 4, icon: 'trending-up',   iconType: ''      as NotifIconType, title: 'Conversion +2.1% ce matin',           msg: 'Le taux de conversion dépasse la moyenne hebdomadaire.',            time: 'Il y a 32 min',      unread: true  },
-  { id: 5, icon: 'alert-circle',  iconType: 'amber' as NotifIconType, title: 'Stock faible — Rayon enfants',        msg: 'Réassort nécessaire pour 4 références.',                            time: 'Il y a 1h',          unread: false },
 ];
 
 // FIX: ces pills filtrent des sections de CETTE page (pas une navigation
@@ -109,8 +108,6 @@ const AlertRow: React.FC<AlertRowProps> = ({ alert }) => {
 const Dashboard: React.FC = () => {
   const history = useHistory();
   const [activeTab,     setActiveTab]     = useState("Vue d'ensemble");
-  const [notifOpen,     setNotifOpen]     = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
   const [alerts,        setAlerts]        = useState<AlertItem[]>(INITIAL_ALERTS);
   const [toastData,     setToastData]     = useState<{ msg: string; time: string } | null>(null);
   const [prediction,    setPrediction]    = useState<PredictionData | null>(null);
@@ -119,10 +116,8 @@ const Dashboard: React.FC = () => {
   const [hourlyLoading,   setHourlyLoading]   = useState(true);
   const [hourlyError,     setHourlyError]     = useState<string | null>(null);
 
-  // FIX: initialisé au nombre réel de notifications unread, pas un magic number
-  const [badgeCount, setBadgeCount] = useState(
-    INITIAL_NOTIFICATIONS.filter(n => n.unread).length
-  );
+  // (badgeCount local supprimé — NotificationBell gère son propre badge
+  // via /predictions/notifications/unread-count/, voir plus haut)
 
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { prediction: ssePrediction, isConnected } = useSSEPrediction();
@@ -152,11 +147,11 @@ const Dashboard: React.FC = () => {
 
     setPrediction(data);
 
-    setNotifications(prev => prev.map(n =>
-      n.isPrediction
-        ? { ...n, msg: data.message ?? '', time: timeLabel(), unread: true }
-        : n
-    ));
+    // Pas besoin de mettre à jour une liste de notifications locale ici :
+    // receive_daily_report() sauvegarde déjà la notification en BD avant
+    // de broadcaster via SSE, donc le panneau "Notifications IA"
+    // (NotificationBell, qui poll /predictions/notifications/history/
+    // toutes les 5s) la verra apparaître automatiquement.
 
     setAlerts(prev => prev.map(a =>
       a.id === 3
@@ -164,8 +159,8 @@ const Dashboard: React.FC = () => {
         : a
     ));
 
-    // FIX: incrémenter le badge de la cloche lors d'une nouvelle prédiction SSE
-    setBadgeCount(prev => prev + 1);
+    // (l'ancien incrément manuel de badgeCount a été retiré : le badge
+    // de la cloche reflète maintenant directement l'API backend)
 
     const shortMsg = data.message
       ? data.message.substring(0, 90) + '…'
@@ -214,19 +209,8 @@ const Dashboard: React.FC = () => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
   }, []);
 
-  // FIX: fonction centralisée — ouvre le panel ET remet le badge à 0
-  const handleNotifClick = (n: NotificationItem) => {
-    const msg = `${n.title} : ${n.msg}`;
-    sendToChat(msg);
-    setNotifOpen(false);
-    history.push('/chat');
-  };
-
-  const handleNotifOpen = useCallback(() => {
-    setNotifOpen(true);
-    setBadgeCount(0);
-    setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
-  }, []);
+  // (handleNotifOpen / handleNotifClick supprimés — plus de panneau
+  // factice à piloter ; NotificationBell gère désormais tout lui-même)
 
   const chartData = useMemo(() => ({
     labels: INTRADAY_HOURS.map((h) => `${h}h`),
@@ -274,13 +258,15 @@ const Dashboard: React.FC = () => {
           </div>
 
           {/*
-            FIX: passer externalUnread + onOpen pour que la cloche soit
-            pilotée par le badgeCount du Dashboard, pas par son propre polling
+            FIX: on ne pilote plus le badge de la cloche avec un compteur
+            local alimenté seulement par le SSE — ça masquait les
+            notifications déjà en base avant l'ouverture de l'app, et
+            c'était la source originelle du bug "aucune notification
+            affichée". NotificationBell gère maintenant son badge via
+            son propre polling sur /predictions/notifications/unread-count/,
+            qui reflète l'état réel du backend.
           */}
-          <NotificationBell
-            externalUnread={badgeCount}
-            onOpen={handleNotifOpen}
-          />
+          <NotificationBell />
         </div>
 
         <div className="db-tab-row">
@@ -379,38 +365,6 @@ const Dashboard: React.FC = () => {
         <div style={{ height: 16 }} />
 
       </IonContent>
-
-      {/* ── Notification Panel (alertes locales Dashboard) ─────── */}
-      {notifOpen && (
-        <div
-          className="db-notif-overlay"
-          onClick={e => e.target === e.currentTarget && setNotifOpen(false)}
-        >
-          <div className="db-notif-panel" role="dialog" aria-label="Notifications">
-            <div className="db-notif-panel-header">
-              <span className="db-notif-panel-title">Notifications</span>
-              <button className="db-notif-close" onClick={() => setNotifOpen(false)} aria-label="Fermer">
-                <span className="ti ti-x" aria-hidden="true" />
-              </button>
-            </div>
-            <div className="db-notif-scroll">
-              {notifications.map(n => (
-                <div key={n.id} className="db-notif-item" onClick={() => handleNotifClick(n)} style={{ cursor: 'pointer' }}>
-                  <div className={`db-notif-icon ${n.iconType}`}>
-                    <span className={`ti ti-${n.icon}`} aria-hidden="true" />
-                  </div>
-                  <div className="db-notif-body">
-                    <div className="db-notif-item-title">{n.title}</div>
-                    <div className="db-notif-item-msg">{n.msg}</div>
-                    <div className="db-notif-item-time">{n.time}</div>
-                  </div>
-                  {n.unread && <div className="db-notif-unread-dot" />}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── SSE Toast ─────────────────────────────────────────────── */}
       {toastData && (

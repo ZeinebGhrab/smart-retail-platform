@@ -36,7 +36,10 @@ export function useSSEPrediction(): UseSSEPredictionReturn {
       esRef.current.close();
     }
 
-    const url = `${API_BASE_URL}/prediction/stream/`;
+    // Backend monte n8n_predictions sous 'predictions/' (pluriel) —
+    // voir history/urls.py : path('predictions/', include('history.n8n_predictions.urls', ...))
+    // L'URL réelle est donc /api/predictions/stream/, pas /api/prediction/stream/.
+    const url = `${API_BASE_URL}/predictions/stream/`;
     const es  = new EventSource(url);
     esRef.current = es;
 

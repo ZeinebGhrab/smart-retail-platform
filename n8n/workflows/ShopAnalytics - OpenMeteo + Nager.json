@@ -12,26 +12,26 @@
           ]
         }
       },
-      "id": "09f2830c-6795-45e6-bae1-85bf7b266b89",
+      "id": "b8552ccb-729e-4a52-ae8a-d7029c7f52a4",
       "name": "Déclencheur 6h00",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.1,
       "position": [
-        -528,
-        176
+        1472,
+        832
       ]
     },
     {
       "parameters": {
         "jsCode": "await new Promise(r => setTimeout(r, 500));\nreturn [{\n  json: {\n    status: 'trained',\n    model_version: '1.0.0',\n    trained_at: new Date().toISOString(),\n    samples_used: 142\n  }\n}];"
       },
-      "id": "dee2112b-729c-445e-88df-fb0c5c50039a",
+      "id": "292549ab-65c8-46f3-bcfd-791c0e20249e",
       "name": "Réentraînement Modèle ML",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -352,
-        176
+        1648,
+        832
       ],
       "notes": "⚠️ MOCK — Remplacer par HTTP Request POST /api/train"
     },
@@ -39,13 +39,13 @@
       "parameters": {
         "jsCode": "// Date du jour au format ISO (YYYY-MM-DD), utilisée par les 2 branches suivantes\nconst today = new Date().toISOString().split('T')[0];\nreturn [{\n  json: {\n    date: today\n  }\n}];"
       },
-      "id": "e164b881-a625-4e0a-9a67-c279bc527b78",
+      "id": "f8fb785f-9949-4d2c-beb7-9b7380e05031",
       "name": "Date du Jour",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -176,
-        176
+        1824,
+        832
       ],
       "notes": "Centralise la date utilisée pour la météo, le jour férié et l'appel ML"
     },
@@ -77,13 +77,13 @@
           "timeout": 10000
         }
       },
-      "id": "b7512763-5f34-4258-8ab4-26d416e65ef4",
+      "id": "752b7674-3777-4375-81ff-3efe39e92808",
       "name": "Récupérer Météo",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        0,
-        0
+        2000,
+        656
       ],
       "notes": "API interne météo — retourne { temperature, wind_speed } pour la date donnée"
     },
@@ -99,13 +99,13 @@
           "timeout": 10000
         }
       },
-      "id": "7fddd2db-b552-4714-a336-81bbda64dad6",
+      "id": "ae165d7f-159f-483c-985d-117e64415fef",
       "name": "Vérifier Jour Férié",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        -16,
-        352
+        1984,
+        1008
       ],
       "notes": "⚠️ Pays codé en dur sur TN (Tunisie). API Nager.Date : renvoie HTTP 200 si jour férié, 204 sinon."
     },
@@ -113,13 +113,13 @@
       "parameters": {
         "jsCode": "// Cette node reçoit le statut HTTP brut de \"Vérifier Jour Férié\"\n// 200 = jour férié, 204 = jour normal\nconst statusCode = $input.first().json.statusCode;\nconst type_jour = statusCode === 200 ? 'ferie' : 'normal';\n\nreturn [{\n  json: {\n    type_jour: type_jour\n  }\n}];"
       },
-      "id": "592fe5ac-4bfc-466f-9647-1a0d842272ac",
+      "id": "45ad2231-f352-407d-9755-a2ea50632825",
       "name": "Interpréter Jour Férié",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        192,
-        368
+        2192,
+        1024
       ],
       "notes": "Convertit le code HTTP de Nager.Date en type_jour: 'ferie' | 'normal'"
     },
@@ -129,13 +129,13 @@
         "combineBy": "combineAll",
         "options": {}
       },
-      "id": "abfe634b-70b7-4e40-b256-c593f9516ed7",
+      "id": "9d5003a1-bef3-47f4-8256-cb9ee890869f",
       "name": "Fusionner Météo + Jour",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
       "position": [
-        352,
-        176
+        2352,
+        832
       ],
       "notes": "Combine la sortie de 'Récupérer Météo' (input 0) et 'Interpréter Jour Férié' (input 1)"
     },
@@ -143,13 +143,13 @@
       "parameters": {
         "jsCode": "const items = $input.all();\nconst merged = Object.assign({}, ...items.map(i => i.json));\n\nconst date = $('Date du Jour').first().json.date;\n\n// Open-Meteo retourne: current.temperature_2m et current.wind_speed_10m\nconst currentWeather = merged.current || {};\nconst temperature = currentWeather.temperature_2m ?? merged.temperature ?? 'N/A';\nconst wind_speed  = currentWeather.wind_speed_10m  ?? merged.wind_speed  ?? 'N/A';\nconst type_jour   = merged.type_jour ?? 'normal';\n\nreturn [{\n  json: {\n    date,\n    temperature,\n    wind_speed,\n    type_jour\n  }\n}];"
       },
-      "id": "037d3a2b-4fef-4b72-8f22-7c0423825bd5",
+      "id": "36cf5c02-28a1-422e-b96f-6b2ff4cb48e8",
       "name": "Préparer Contexte Jour",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        544,
-        176
+        2544,
+        832
       ],
       "notes": "Construit le payload final {date, temperature, wind_speed, type_jour} envoyé au modèle ML"
     },
@@ -157,13 +157,13 @@
       "parameters": {
         "jsCode": "// ── Parsing de la vraie réponse LightGBM POST /predict ──\n// Format attendu :\n// {\n//   \"date\": \"2026-06-25\",\n//   \"predictions\": [\n//     { \"hour\": 10, \"camera\": \"Cam_porte1\",\n//       \"profile\": [{ \"gender\": \"Female\", \"age\": \"18-29\", \"visits_predicted\": 5 }, ...],\n//       \"total_visits\": 42 },\n//     ...\n//   ]\n// }\n\nconst raw = $input.first().json;\n\n// Robustesse : la réponse peut être directement le body ou imbriquée\nconst predictions = raw.predictions ?? raw.body?.predictions ?? [];\n\nif (!predictions || predictions.length === 0) {\n  throw new Error(\"Réponse /predict vide ou malformée : \" + JSON.stringify(raw));\n}\n\n// ── Totaux par heure (toutes caméras) ──\nconst byHour = {};\nfor (const p of predictions) {\n  if (!byHour[p.hour]) byHour[p.hour] = 0;\n  byHour[p.hour] += p.total_visits;\n}\n\n// ── Heure de pointe ──\nconst heurePointe = Object.entries(byHour)\n  .sort((a, b) => b[1] - a[1])[0];\n\n// ── Total journalier ──\nconst totalJour = Object.values(byHour).reduce((a, b) => a + b, 0);\n\n// ── Profils agrégés toutes heures + caméras ──\nconst profileCount = {};\nfor (const p of predictions) {\n  for (const prof of p.profile) {\n    if (prof.visits_predicted > 0) {\n      const key = `${prof.gender}_${prof.age}`;\n      profileCount[key] = (profileCount[key] || 0) + prof.visits_predicted;\n    }\n  }\n}\n\nconst profilesSorted = Object.entries(profileCount)\n  .sort((a, b) => b[1] - a[1])\n  .map(([key, count]) => {\n    const [gender, age] = key.split('_');\n    return { gender, age, visits: count };\n  });\n\nconst profilDominant = profilesSorted[0]\n  ? `${profilesSorted[0].gender} ${profilesSorted[0].age}`\n  : 'N/A';\n\n// ── Détail par heure avec profils actifs ──\nconst detailParHeure = {};\nfor (const p of predictions) {\n  const h = p.hour;\n  if (!detailParHeure[h]) {\n    detailParHeure[h] = { total: 0, cameras: {}, profils_actifs: {} };\n  }\n  detailParHeure[h].total += p.total_visits;\n  detailParHeure[h].cameras[p.camera] = (detailParHeure[h].cameras[p.camera] || 0) + p.total_visits;\n\n  for (const prof of p.profile) {\n    if (prof.visits_predicted > 0) {\n      const key = `${prof.gender} ${prof.age}`;\n      detailParHeure[h].profils_actifs[key] =\n        (detailParHeure[h].profils_actifs[key] || 0) + prof.visits_predicted;\n    }\n  }\n}\n\nreturn [{\n  json: {\n    date: raw.date || predictions[0]?.date || new Date().toISOString().split('T')[0],\n    visiteurs_prevus_total:  totalJour,\n    heure_pointe:            `${heurePointe[0]}h00`,\n    visiteurs_heure_pointe:  heurePointe[1],\n    profil_dominant:         profilDominant,\n    profils_par_volume:      profilesSorted,\n    detail_par_heure:        detailParHeure\n  }\n}];"
       },
-      "id": "1172ee07-968e-4120-a9dc-8a3d6d588d98",
+      "id": "bfa1aa48-fb33-4440-af3e-3b5ed98efbc4",
       "name": "Prédiction Visiteurs",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        912,
-        176
+        2912,
+        832
       ],
       "notes": "✅ RÉEL — Parse la vraie réponse LightGBM POST /predict"
     },
@@ -171,13 +171,13 @@
       "parameters": {
         "jsCode": "const data = $input.first().json;\nconst ctx  = $('Préparer Contexte Jour').first().json;\n\nconst temperature = data.temperature ?? ctx.temperature ?? 'N/A';\nconst wind_speed  = data.wind_speed  ?? ctx.wind_speed  ?? 'N/A';\nconst type_jour   = data.type_jour   ?? ctx.type_jour   ?? 'normal';\nconst date        = data.date        ?? ctx.date;\n\nconst jourLabel = type_jour === 'ferie' ? 'jour férié' : 'jour ouvrable';\nconst meteo     = `${temperature}°C, vent ${wind_speed} km/h`;\n\n// ── Top 3 profils ──\nconst profilesStr = (data.profils_par_volume || [])\n  .slice(0, 3)\n  .map(p => `${p.gender} ${p.age} (${p.visits} visites)`)\n  .join(', ');\n\n// ── Top 3 créneaux de rush ──\nconst detail = data.detail_par_heure || {};\nconst topHeures = Object.entries(detail)\n  .map(([h, v]) => ({ heure: Number(h), total: v.total }))\n  .sort((a, b) => b.total - a.total)\n  .slice(0, 3);\n\nconst rushStr = topHeures\n  .map(h => `${h.heure}h-${h.heure + 1}h : ${h.total} visiteurs`)\n  .join(', ');\n\nconst totalJour = data.visiteurs_prevus_total || 0;\nconst totalRush = topHeures.reduce((acc, h) => acc + h.total, 0);\nconst partRushPct = totalJour > 0 ? Math.round((totalRush / totalJour) * 100) : 0;\n\n// ── Niveau d'affluence ──\nlet niveauAffluence;\nif      (totalJour < 50)  niveauAffluence = 'Faible';\nelse if (totalJour < 150) niveauAffluence = 'Modéré';\nelse if (totalJour < 350) niveauAffluence = 'Élevé';\nelse                      niveauAffluence = 'Très élevé';\n\n// ── Tableau horaire complet (heures d'ouverture 7h-23h) ──\nconst heuresOuverture = [7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23];\nconst lignesTableau = heuresOuverture.map(h => {\n  const v = detail[h];\n  if (!v) return null;\n  const total = v.total;\n  const pct   = totalJour > 0 ? ((total / totalJour) * 100).toFixed(1) : '0.0';\n  let charge;\n  if      (total === 0)               charge = 'Fermé';\n  else if (total < totalJour * 0.04)  charge = 'Minimal';\n  else if (total < totalJour * 0.07)  charge = 'Standard';\n  else if (total < totalJour * 0.09)  charge = 'Renforce';\n  else                                charge = 'MAXIMUM';\n  return { heure: h, total, pct, charge };\n}).filter(Boolean);\n\nconst tableauRows = lignesTableau\n  .map(r => `| ${r.heure}h-${r.heure+1}h | ${r.total} | ${r.pct}% | ${r.charge} |`)\n  .join('\\n');\n\n// ── Staffing recommandé par créneau ──\nconst staffingRows = lignesTableau.map(r => {\n  let conseil;\n  if      (r.charge === 'Minimal')  conseil = '1 collaborateur suffit';\n  else if (r.charge === 'Standard') conseil = 'Effectif standard, surveiller la montée';\n  else if (r.charge === 'Renforce') conseil = 'Renforcer caisses et accueil';\n  else if (r.charge === 'MAXIMUM')  conseil = 'Effectif MAXIMUM — toutes caisses ouvertes';\n  else                              conseil = 'Fermé';\n  return `- ${r.heure}h-${r.heure+1}h (${r.total} visiteurs) : ${conseil}`;\n}).join('\\n');\n\nconst prompt = `Tu es l'assistant analytique de ShopAnalytics pour Anavid Store 360.\nTu rédiges le rapport quotidien de prévision trafic destiné à l'équipe du magasin.\nUtilise UNIQUEMENT les données ML fournies ci-dessous — n'invente aucun chiffre.\nRédige en français, ton professionnel et opérationnel.\n\n═══════════════════════════════════════════════\nDONNÉES ML — ${date} (${jourLabel})\nMétéo : ${meteo} | Affluence prévue : ${niveauAffluence}\n═══════════════════════════════════════════════\nTotal visiteurs prévu    : ${totalJour}\nHeure de pointe          : ${data.heure_pointe} — ${data.visiteurs_heure_pointe} visiteurs\nCréneaux rush (top 3)    : ${rushStr} → ${partRushPct}% du trafic journalier\nProfil dominant          : ${data.profil_dominant}\nTop 3 profils            : ${profilesStr}\n\nDÉTAIL HORAIRE :\n| Heure | Prédit | % journée | Charge |\n|-------|--------|-----------|--------|\n${tableauRows}\n\nSTAFFING SUGGÉRÉ PAR CRÉNEAU :\n${staffingRows}\n═══════════════════════════════════════════════\n\nGénère un rapport structuré en 4 parties EXACTEMENT dans cet ordre :\n\n---\n**ANALYSE PRÉDICTIVE DU TRAFIC VISITEURS**\nAnavid Store 360\nPrévisions pour le ${date} (${jourLabel})\n\n**Synthèse** : Total prévu ${totalJour} visiteurs | Pic : ${data.heure_pointe} (${data.visiteurs_heure_pointe} visiteurs) | Rush ${rushStr.split(',')[0].split(':')[0].trim()} : ${partRushPct}% du trafic | Météo : ${meteo}\n\n---\n**PARTIE 1 — PRÉDICTION HEURE PAR HEURE**\nReprends le tableau horaire fourni ci-dessus tel quel, avec les colonnes : Heure | Prédit | % journée | Charge.\nAjoute en dessous un encadré \"POINT CLÉ\" : 1 phrase sur le créneau le plus chargé et ce qu'il implique pour l'équipe.\n\n---\n**PARTIE 2 — ANALYSE DU PROFIL CLIENTÈLE**\nRédige 2-3 phrases sur le profil dominant attendu (${data.profil_dominant}) et les ${partRushPct}% de trafic concentrés sur le rush. Termine par 1 recommandation concrète liée à ce profil (ex : mise en avant de rayons, animation, accueil spécifique).\n\n---\n**PARTIE 3 — RECOMMANDATIONS OPÉRATIONNELLES**\n\n**Staffing & caisses**\nReprends le staffing suggéré créneau par créneau ci-dessus. Mets en gras les créneaux MAXIMUM. Ajoute l'heure précise d'ouverture totale des caisses (15 min avant le premier créneau MAXIMUM).\n\n**Rayons**\n2 recommandations concrètes adaptées au type de jour (${jourLabel}) et au profil dominant.\n\n**Logistique**\nFenêtre de livraison recommandée (avant le premier créneau \"Renforce\") + créneau réassort express si applicable.\n\n---\n**PARTIE 4 — MESSAGE MOTIVATIONNEL**\n1 phrase courte, énergique, adaptée au niveau d'affluence \"${niveauAffluence}\", pour motiver l'équipe avant l'ouverture. Style direct, pas de clichés.\n---\n\nRespecte strictement cette structure. Pas de texte hors structure. Utilise les données fournies.`;\n\nreturn [{\n  json: {\n    prompt: prompt,\n    prediction: {\n      ...data,\n      temperature,\n      wind_speed,\n      type_jour,\n      date,\n      top_heures_rush:  topHeures,\n      part_rush_pct:    partRushPct,\n      niveau_affluence: niveauAffluence,\n    }\n  }\n}];"
       },
-      "id": "40cb0c10-c5c0-4f2d-a94a-0559d1d67d51",
+      "id": "19ddffae-4877-4707-9b21-806b490e1b26",
       "name": "Préparer Prompt Ollama",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1088,
-        192
+        3088,
+        848
       ],
       "notes": "✅ Prompt adapté au format rapport Analyse_Predictive_06_juin_2026"
     },
@@ -186,13 +186,13 @@
         "promptType": "define",
         "text": "={{ $('Préparer Prompt Ollama').item.json.prompt }}"
       },
-      "id": "ff4d58ce-2cc4-4469-b9d1-140d0c22b450",
+      "id": "86c4a163-e2fc-4e77-8de1-427e0b5755f5",
       "name": "Basic LLM Chain",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.4,
       "position": [
-        1248,
-        208
+        3248,
+        864
       ]
     },
     {
@@ -204,13 +204,13 @@
           "numPredict": 300
         }
       },
-      "id": "bb5c7c25-d857-4ffa-8417-de546ae181e0",
+      "id": "97adced6-3009-403f-8203-3375e561c25b",
       "name": "Ollama Model",
       "type": "@n8n/n8n-nodes-langchain.lmOllama",
       "typeVersion": 1,
       "position": [
-        1360,
-        416
+        3360,
+        1072
       ],
       "credentials": {
         "ollamaApi": {
@@ -223,20 +223,20 @@
       "parameters": {
         "jsCode": "const llmText = $input.first().json.text?.trim();\nconst pred = $('Préparer Prompt Ollama').first().json.prediction;\n\nconst total = pred.visiteurs_prevus_total;\nlet niveau_affluence;\nif (total < 50)       niveau_affluence = \"Faible\";\nelse if (total < 150) niveau_affluence = \"Modéré\";\nelse if (total < 350) niveau_affluence = \"Élevé\";\nelse                  niveau_affluence = \"Très élevé\";\n\nreturn [{\n  json: {\n    type: 'llm_report',\n    date: pred.date,\n    generated_at: new Date().toISOString(),\n    message: llmText,\n    prediction: {\n      visiteurs_prevus:       pred.visiteurs_prevus_total,\n      profil_dominant:        pred.profil_dominant,\n      niveau_affluence:       niveau_affluence,\n      heure_pointe:           pred.heure_pointe,\n      visiteurs_heure_pointe: pred.visiteurs_heure_pointe,\n      profils_par_volume:     pred.profils_par_volume,\n      detail_par_heure:       pred.detail_par_heure\n    }\n  }\n}];"
       },
-      "id": "e195133e-16f3-49e5-8399-7f22baffdfb7",
+      "id": "a2e85e60-12a9-4f73-ad31-987e236d4d2a",
       "name": "Formater Payload SSE",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1568,
-        192
+        3568,
+        848
       ],
       "notes": "Formate exactement le PredictionData attendu par Dashboard.tsx et Django SSE"
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "http://django-api:8000/api/send-fcm/",
+        "url": "http://django-api:8000/api/predictions/daily-report/",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -248,18 +248,18 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json) }}",
+        "jsonBody": "={{\n{\n  \"type\": $json.type,\n  \"date\": $json.date,\n  \"generated_at\": $json.generated_at,\n  \"message\": $json.message,\n  \"prediction\": {\n    \"visiteurs_prevus\": $json.prediction.visiteurs_prevus,\n    \"profil_dominant\": $json.prediction.profil_dominant,\n    \"niveau_affluence\": $json.prediction.niveau_affluence,\n    \"heure_pointe\": $json.prediction.heure_pointe,\n    \"visiteurs_heure_pointe\": $json.prediction.visiteurs_heure_pointe,\n    \"profils_par_volume\": $json.prediction.profils_par_volume,\n    \"detail_par_heure\": $json.prediction.detail_par_heure\n  }\n}\n}}",
         "options": {
           "timeout": 10000
         }
       },
-      "id": "a16bcee9-b504-49d8-879f-b72206d15f37",
+      "id": "d0be5084-ef1e-4bd8-8b05-adb1a847aa8d",
       "name": "Push SSE → Django",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1776,
-        0
+        3776,
+        656
       ],
       "notes": "POST /api/daily-report/ → Django notifie tous les clients SSE connectés (Dashboard + ChatIA)"
     },
@@ -267,20 +267,20 @@
       "parameters": {
         "jsCode": "// Envoie le rapport LLM au RAG Django (chatbot Ionic)\nconst llmText   = $input.first().json.message?.trim() || $input.first().json.text?.trim();\nconst pred      = $input.first().json.prediction;\n\n// Noms de champs corrects (alignés avec Formater Payload SSE)\nconst date            = pred.date             || pred.date_prevision || new Date().toISOString().split('T')[0];\nconst visiteurs       = pred.visiteurs_prevus || pred.visiteurs_prevus_total || 0;\nconst heurePointe     = pred.heure_pointe     || 'N/A';\nconst profilDominant  = pred.profil_dominant  || 'N/A';\nconst niveauAffluence = pred.niveau_affluence || 'N/A';\n\nlet chatAnswer = llmText;\n\ntry {\n  const response = await $http.request({\n    method:  'POST',\n    url:     'http://shopanalytics-django-api:8000/api/chat/',\n    headers: { 'Content-Type': 'application/json' },\n    body:    { question: `Rapport quotidien automatique du ${date} : ${llmText}` },\n    json:    true\n  });\n  chatAnswer = response.answer || llmText;\n} catch (err) {\n  console.log('Django indisponible, fallback LLM : ' + err.message);\n}\n\nconst notification = {\n  id:               Date.now(),\n  date:             date,\n  generated_at:     new Date().toISOString(),\n  visiteurs_prevus: visiteurs,\n  profil_dominant:  profilDominant,\n  niveau_affluence: niveauAffluence,\n  heure_pointe:     heurePointe,\n  message:          chatAnswer,\n  model:            'llama3.2:3b-instruct-q4_K_M',\n  type:             'daily_report'\n};\n\nreturn [{ json: notification }];"
       },
-      "id": "aa0798b6-babe-46f4-9789-032eab0599f4",
+      "id": "64dd8684-1644-4ecf-9ddd-a4b418f59a8f",
       "name": "Envoyer au Chatbot",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1776,
-        384
+        3776,
+        1040
       ],
       "notes": "✅ Champs corrigés (date, visiteurs_prevus, heure_pointe)"
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "http://django-api:8000/api/send-fcm/",
+        "url": "http://django-api:8000/api/predictions/fcm/send/",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -291,12 +291,7 @@
           ]
         },
         "sendBody": true,
-        "specifyBody": "=json",
-        "bodyParameters": {
-          "parameters": [
-            {}
-          ]
-        },
+        "specifyBody": "json",
         "jsonBody": "={{\n{\n  title: \"📊 Rapport Quotidien - \" + $json.date,\n  body: $json.message,\n  data: {\n    type: $json.type,\n    date: $json.date,\n    visiteurs_prevus: $json.prediction.visiteurs_prevus,\n    profil_dominant: $json.prediction.profil_dominant,\n    niveau_affluence: $json.prediction.niveau_affluence,\n    heure_pointe: $json.prediction.heure_pointe\n  }\n}\n}}",
         "options": {
           "timeout": 10000
@@ -305,10 +300,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1776,
-        192
+        3776,
+        848
       ],
-      "id": "fb678c19-0670-4c47-b507-df3078abcbbb",
+      "id": "2c234a79-f5e0-4d8c-aa8a-00e3f7dde585",
       "name": "Envoyer FCM"
     },
     {
@@ -334,10 +329,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        736,
-        176
+        2736,
+        832
       ],
-      "id": "4748fffb-26b1-41d4-a8b4-4dbe698433f5",
+      "id": "ee90fc50-e4a1-40c3-95d8-4358bfd27827",
       "name": "HTTP Request",
       "notes": "POST /predict — body {date, temperature, wind_speed, type_jour} → LightGBM API"
     }
@@ -517,9 +512,10 @@
   "active": false,
   "settings": {
     "executionOrder": "v1",
-    "binaryMode": "separate"
+    "binaryMode": "separate",
+    "availableInMCP": false
   },
-  "versionId": "7bf7410a-0619-4cad-91b6-3a193b1b7b51",
+  "versionId": "c472e525-295e-422d-85bc-5542239eb5c8",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "0737fa583ca2515cd816a2e6577a6e2f65be1b831daa39951e723845f793c099"
@@ -528,22 +524,22 @@
   "id": "TFHRCRN7LHSCEPfn",
   "tags": [
     {
-      "name": "Sprint1",
-      "id": "lBZm4aDi8JhUV9dz",
-      "updatedAt": "2026-06-25T23:03:14.250Z",
-      "createdAt": "2026-06-25T23:03:14.250Z"
-    },
-    {
-      "name": "ShopAnalytics",
-      "id": "n5y2tyhPnq9yOKCH",
-      "updatedAt": "2026-06-25T23:03:14.259Z",
-      "createdAt": "2026-06-25T23:03:14.259Z"
-    },
-    {
-      "name": "Lot3",
-      "id": "SziM0sMavbNlIUFe",
       "updatedAt": "2026-06-25T23:03:14.255Z",
-      "createdAt": "2026-06-25T23:03:14.255Z"
+      "createdAt": "2026-06-25T23:03:14.255Z",
+      "id": "SziM0sMavbNlIUFe",
+      "name": "Lot3"
+    },
+    {
+      "updatedAt": "2026-06-25T23:03:14.250Z",
+      "createdAt": "2026-06-25T23:03:14.250Z",
+      "id": "lBZm4aDi8JhUV9dz",
+      "name": "Sprint1"
+    },
+    {
+      "updatedAt": "2026-06-25T23:03:14.259Z",
+      "createdAt": "2026-06-25T23:03:14.259Z",
+      "id": "n5y2tyhPnq9yOKCH",
+      "name": "ShopAnalytics"
     }
   ]
 }
