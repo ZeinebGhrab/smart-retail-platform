@@ -55,7 +55,14 @@ def _load_csv() -> pd.DataFrame:
     global _df_cache, _csv_mtime
     mtime = DATA_CSV.stat().st_mtime if DATA_CSV.exists() else 0.0
     if _df_cache is None or mtime != _csv_mtime:
+        if not DATA_CSV.exists():
+            raise FileNotFoundError(f"CSV introuvable : {DATA_CSV}")
         df = pd.read_csv(str(DATA_CSV))
+        # Validation des colonnes obligatoires
+        required = {"datetime", "camera", "gender", "age", "Visits"}
+        missing = required - set(df.columns)
+        if missing:
+            raise ValueError(f"Colonnes manquantes dans le CSV : {missing}")
         df["datetime_parsed"] = pd.to_datetime(df["datetime"], dayfirst=True, errors="coerce")
         df["date"]        = df["datetime_parsed"].dt.date.astype(str)
         df["hour"]        = df["datetime_parsed"].dt.hour
@@ -237,16 +244,17 @@ def _cosine(a: list[float], b: list[float]) -> float:
     return dot / (na * nb) if na and nb else 0.0
 
 
-def _retrieve_kb(question: str, n_results: int = 2, min_sim: float = 0.45) -> str:
+def _retrieve_kb(question: str, n_results: int = 1, min_sim: float = 0.55) -> str:
     """
     Recherche sémantique sur la KB (8 docs).
     Embeddings calculés via Ollama /api/embeddings → cosine similarity en Python pur.
     Résultat mis en cache : Ollama n'est appelé qu'une fois par doc au démarrage.
 
-    Un seuil minimal de similarité (`min_sim`) est appliqué : on ne retient
-    un doc que s'il est suffisamment proche de la question. Cela évite de
-    toujours injecter `n_results` documents (souvent du bruit) quand un seul
-    (ou zéro) document est réellement pertinent.
+    n_results=1 par défaut : la KB est petite (8 docs) et injecter 2 docs dégradait
+    systématiquement la Precision@K en ajoutant un doc hors-sujet en 2e position.
+    min_sim=0.55 (relevé de 0.45) pour filtrer les docs sémantiquement éloignés.
+
+    Appelée avec n_results=K (2) uniquement depuis l'évaluateur RAG.
     """
     global _kb_docs, _kb_embeddings
 
@@ -350,11 +358,12 @@ def _classify_intent_llm(question: str) -> str:
                 "stream": False,
                 "options": {
                     "temperature": 0.0,   # déterministe
-                    "num_predict": 4,     # on attend 1 mot : FUTUR ou PASSE
+                    "num_predict": 6,     # on attend 1 mot : FUTUR ou PASSE (+ marge)
+                    "num_ctx":     512,   # prompt court → contexte minimal = inférence rapide
                     "seed": 0,
                 },
             },
-            timeout=10,
+            timeout=15,
         )
         resp.raise_for_status()
         raw = resp.json().get("response", "").strip().upper()
@@ -695,12 +704,18 @@ RÈGLES ABSOLUES — RESPECTER IMPÉRATIVEMENT :
 5. Cite toujours la source de l'information (ex: "selon les données CSV...", "d'après la base de connaissance...").
 6. Quand des prévisions ML sont disponibles, précise toujours qu'il s'agit d'estimations.
 7. Formate la réponse avec des emojis et des tirets pour la lisibilité.
-8. Reste strictement fidèle aux données : ne paraphrase pas en introduisant des inexactitudes."""
+8. Reste strictement fidèle aux données : ne paraphrase pas en introduisant des inexactitudes.
+9. ANTI-HALLUCINATION — CRITIQUE : ne mentionne AUCUN chiffre, heure, date ou nom propre
+   qui ne figure pas mot pour mot dans le CONTEXTE. Si un seul document KB est fourni,
+   utilise UNIQUEMENT ce document. N'ajoute rien depuis ta mémoire ou tes connaissances.
+10. Si la question porte sur la FAQ (KB), réponds exclusivement avec les infos du passage
+    fourni. N'invente pas d'exemples, ne complète pas avec de nouveaux faits. La réponse
+    doit pouvoir être vérifiée mot à mot dans le CONTEXTE."""
 
 
 def _build_prompt(question: str, csv_ctx: str, kb_ctx: str, history: str = "", ml_ctx: str = "") -> str:
     history_block = f"=== HISTORIQUE DE LA CONVERSATION ===\n{history}\n\n" if history else ""
-    kb_block  = f"=== BASE DE CONNAISSANCE (FAQ) ===\n{kb_ctx}\n\n" if kb_ctx else ""
+    kb_block  = f"=== BASE DE CONNAISSANCE (FAQ) — utilise UNIQUEMENT ce passage ===\n{kb_ctx}\n\n" if kb_ctx else ""
     ml_block  = f"{ml_ctx}\n\n" if ml_ctx else ""
     csv_block = f"=== DONNÉES VISITEURS HISTORIQUES (CSV) ===\n{csv_ctx}\n\n" if csv_ctx and csv_ctx != "Données non disponibles." else ""
     return (
@@ -716,7 +731,16 @@ def _build_prompt(question: str, csv_ctx: str, kb_ctx: str, history: str = "", m
 
 # ── 4. LLM — Ollama /api/generate ────────────────────────────
 
-def _call_ollama(prompt: str) -> str:
+def _call_ollama(prompt: str, _retry: bool = True) -> str:
+    """
+    Appelle Ollama /api/generate.
+
+    num_predict augmenté à 2048 pour éviter la troncature JSON sur les requêtes
+    complexes (cause identifiée des 7 invalid_json du benchmark tool-calling).
+
+    Si la réponse semble tronquée (ne se termine pas par un caractère de fin
+    reconnu), une seconde tentative est effectuée avec num_predict=3072.
+    """
     resp = requests.post(
         f"{OLLAMA_HOST}/api/generate",
         json={
@@ -724,17 +748,45 @@ def _call_ollama(prompt: str) -> str:
             "prompt": prompt,
             "stream": False,
             "options": {
-                "temperature": 0.0,  # déterministe pour maximiser la faithfulness
+                "temperature": 0.0,
                 "top_p":       0.9,
                 "num_ctx":     4096,
-                "num_predict": 1024,
+                "num_predict": 2048,
                 "seed":        42,
             },
         },
-        timeout=120,
+        timeout=180,
     )
     resp.raise_for_status()
-    return resp.json().get("response", "").strip()
+    answer = resp.json().get("response", "").strip()
+
+    # Détection de troncature : pas de ponctuation finale → retry avec plus de tokens
+    if _retry and answer and answer[-1] not in ".!?*_}`":
+        try:
+            longer = requests.post(
+                f"{OLLAMA_HOST}/api/generate",
+                json={
+                    "model":  OLLAMA_MODEL,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "temperature": 0.0,
+                        "top_p":       0.9,
+                        "num_ctx":     4096,
+                        "num_predict": 3072,
+                        "seed":        42,
+                    },
+                },
+                timeout=240,
+            )
+            longer.raise_for_status()
+            answer_retry = longer.json().get("response", "").strip()
+            if len(answer_retry) > len(answer):
+                return answer_retry
+        except Exception:
+            pass
+
+    return answer
 
 
 # ── 5. PIPELINE PRINCIPAL ─────────────────────────────────────
@@ -899,7 +951,8 @@ def _is_pure_data_query(text: str) -> bool:
     has_faq_kw = any(k in t for k in
         ["politique", "procédure", "confidentialité", "définition",
          "caméras de comptage", "installé", "conversion", "panier",
-         "stock", "limite", "modèle de prévision"])
+         "stock", "limite", "modèle de prévision", "horaires",
+         "ouverture", "fermeture", "flux horaire", "interprét"])
 
     is_data_topic = (has_date or has_summary_kw) and (mentions_visitors or has_summary_kw)
 
