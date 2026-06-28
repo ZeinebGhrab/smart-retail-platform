@@ -42,4 +42,8 @@ urlpatterns = [
     # Alias ancienne URL frontend (/api/prediction/stream/)
     path('prediction/stream/', n8n_views.prediction_stream, name='prediction-stream'),
 
+    # Alias FCM (frontend appelle /api/fcm-token/ et /api/send-fcm/)
+    path('fcm-token/', n8n_views.register_fcm_token, name='fcm-token'),
+    path('send-fcm/',  n8n_views.send_fcm_notification, name='send-fcm'),
+
 ]

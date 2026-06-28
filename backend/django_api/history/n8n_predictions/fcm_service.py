@@ -9,6 +9,7 @@ import base64
 import os
 import requests
 import logging
+from django.utils import timezone
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.backends import default_backend
@@ -70,7 +71,7 @@ class FCMService:
         
         # Créer un JWT signé
         header = base64.urlsafe_b64encode(
-            json.dumps({"alg\": \"RS256\", \"typ\": \"JWT"}).encode()
+            json.dumps({"alg": "RS256", "typ": "JWT"}).encode()
         ).rstrip(b"=").decode()
         
         payload = base64.urlsafe_b64encode(json.dumps({

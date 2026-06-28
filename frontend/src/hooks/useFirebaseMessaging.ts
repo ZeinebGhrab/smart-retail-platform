@@ -15,6 +15,7 @@
 import { useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { FirebaseMessaging } from '@capacitor-firebase/messaging';
+import { LocalNotifications } from '@capacitor/local-notifications';
 import { initializeApp, getApps } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { saveFCMToken } from '../services/fcm';
@@ -51,8 +52,26 @@ async function registerNative(): Promise<void> {
   await saveFCMToken(token);
 
   // Notification reçue quand l'app est au PREMIER PLAN
-  await FirebaseMessaging.addListener('notificationReceived', (event) => {
+  await FirebaseMessaging.addListener('notificationReceived', async (event) => {
     console.log('Notification FCM reçue (foreground, natif) :', event);
+
+    const title = event.notification?.title || 'ShopAnalytics';
+    const body = event.notification?.body || '';
+
+    // FCM n'affiche jamais la notification système quand l'app est au
+    // premier plan — il faut l'afficher nous-mêmes via une notification
+    // locale, sinon rien n'apparaît à l'écran (le message est bien reçu
+    // mais reste invisible pour l'utilisateur).
+    await LocalNotifications.schedule({
+      notifications: [
+        {
+          id: Date.now() % 2147483647,
+          title,
+          body,
+          extra: event.notification?.data,
+        },
+      ],
+    });
   });
 
   // Notification tappée depuis l'ARRIÈRE-PLAN ou app killed
