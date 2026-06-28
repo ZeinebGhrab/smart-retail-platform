@@ -133,10 +133,11 @@ services:
       - "8000:8000"
     volumes:
       - ./backend/django_api:/app
-      - ./backend/scripts:/workspace/scripts
+      - ./backend/scripts:/app/scripts
       - ./backend/data:/app/data
       - ./backend/dataset:/app/dataset
       - ./backend/results:/app/results
+      - ./modele-ML:/modele-ML:ro
     environment:
       - DJANGO_DEBUG=true
       - DB_ENGINE=mysql

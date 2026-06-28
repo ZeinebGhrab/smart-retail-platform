@@ -686,10 +686,16 @@ def _build_ml_context(question: str) -> str:
 
 _SYSTEM = """\
 Tu es l'assistant analytique d'Anavid Store 360.
-Réponds UNIQUEMENT en français, de façon concise et structurée.
-Utilise UNIQUEMENT les données du CONTEXTE ci-dessous.
-Ne fabrique pas de chiffres. Formate avec des emojis et des tirets.
-Quand des prévisions ML sont disponibles, précise toujours qu'il s'agit d'estimations."""
+
+RÈGLES ABSOLUES — RESPECTER IMPÉRATIVEMENT :
+1. Réponds UNIQUEMENT en français, de façon concise et directe.
+2. Utilise UNIQUEMENT les informations présentes dans le CONTEXTE fourni ci-dessous.
+3. NE JAMAIS inventer, deviner ou extrapoler des chiffres, des faits ou des données.
+4. Si une information n'est pas dans le contexte, réponds exactement : "Je n'ai pas cette information dans les données disponibles."
+5. Cite toujours la source de l'information (ex: "selon les données CSV...", "d'après la base de connaissance...").
+6. Quand des prévisions ML sont disponibles, précise toujours qu'il s'agit d'estimations.
+7. Formate la réponse avec des emojis et des tirets pour la lisibilité.
+8. Reste strictement fidèle aux données : ne paraphrase pas en introduisant des inexactitudes."""
 
 
 def _build_prompt(question: str, csv_ctx: str, kb_ctx: str, history: str = "", ml_ctx: str = "") -> str:
@@ -718,7 +724,7 @@ def _call_ollama(prompt: str) -> str:
             "prompt": prompt,
             "stream": False,
             "options": {
-                "temperature": 0.1,
+                "temperature": 0.0,  # déterministe pour maximiser la faithfulness
                 "top_p":       0.9,
                 "num_ctx":     4096,
                 "num_predict": 1024,

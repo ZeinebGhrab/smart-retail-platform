@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-28T23:13:02.092305",
+  "generated_at": "2026-06-28T22:24:23.943003",
   "config": {
     "k": 2,
     "model": "llama3.2:3b-instruct-q4_K_M",
@@ -24,7 +24,7 @@
       "faithfulness": 0.7069,
       "answer_relevancy": 0.7264
     },
-    "latency_ms_avg": 23196.2167
+    "latency_ms_avg": 18467.95
   },
   "scoring": {
     "score_100": 57.3,
@@ -66,7 +66,7 @@
         "faithfulness": 0.8286,
         "answer_relevancy": 0.6
       },
-      "latency_ms": 39234.1
+      "latency_ms": 31176.6
     },
     {
       "id": "eval-002",
@@ -100,7 +100,7 @@
         "faithfulness": 0.717,
         "answer_relevancy": 0.75
       },
-      "latency_ms": 22401.7
+      "latency_ms": 21732.3
     },
     {
       "id": "eval-003",
@@ -134,7 +134,7 @@
         "faithfulness": 0.4667,
         "answer_relevancy": 1.0
       },
-      "latency_ms": 68108.5
+      "latency_ms": 21100.3
     },
     {
       "id": "eval-004",
@@ -168,7 +168,7 @@
         "faithfulness": 0.8235,
         "answer_relevancy": 0.8
       },
-      "latency_ms": 15737.4
+      "latency_ms": 15405.1
     },
     {
       "id": "eval-005",
@@ -202,7 +202,7 @@
         "faithfulness": 0.6981,
         "answer_relevancy": 0.75
       },
-      "latency_ms": 21201.5
+      "latency_ms": 20767.2
     },
     {
       "id": "eval-006",
@@ -236,7 +236,7 @@
         "faithfulness": 0.3803,
         "answer_relevancy": 0.6
       },
-      "latency_ms": 26227.1
+      "latency_ms": 26959.1
     },
     {
       "id": "eval-007",
@@ -270,7 +270,7 @@
         "faithfulness": 0.9259,
         "answer_relevancy": 0.6667
       },
-      "latency_ms": 16239.4
+      "latency_ms": 16348.2
     },
     {
       "id": "eval-008",
@@ -299,7 +299,7 @@
         "faithfulness": 0.6,
         "answer_relevancy": 0.6667
       },
-      "latency_ms": 5810.0
+      "latency_ms": 5969.1
     },
     {
       "id": "eval-009",
@@ -328,7 +328,7 @@
         "faithfulness": 0.7164,
         "answer_relevancy": 0.8
       },
-      "latency_ms": 16423.5
+      "latency_ms": 15999.6
     },
     {
       "id": "eval-010",
@@ -362,7 +362,7 @@
         "faithfulness": 0.6364,
         "answer_relevancy": 0.6667
       },
-      "latency_ms": 15209.3
+      "latency_ms": 15078.8
     },
     {
       "id": "eval-011",
@@ -396,7 +396,7 @@
         "faithfulness": 0.6905,
         "answer_relevancy": 0.6667
       },
-      "latency_ms": 19739.0
+      "latency_ms": 19145.4
     },
     {
       "id": "eval-012",
@@ -425,7 +425,7 @@
         "faithfulness": 1.0,
         "answer_relevancy": 0.75
       },
-      "latency_ms": 12023.1
+      "latency_ms": 11933.7
     }
   ]
 }

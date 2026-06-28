@@ -18,5 +18,10 @@ PyMySQL>=1.1
 requests>=2.31
 cryptography
 
+# ── ML Model (LightGBM prediction) ───────────────────────────
+lightgbm==4.5.0
+joblib==1.4.2
+scikit-learn==1.5.2
+
 # ── FCM (Firebase Cloud Messaging) ───────────────────────────
 firebase-admin>=6.0.0

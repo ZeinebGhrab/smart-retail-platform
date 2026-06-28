@@ -3,3 +3,8 @@ pandas>=2.0
 numpy>=1.24
 openpyxl>=3.1
 requests>=2.31
+
+# ── ML Model (LightGBM prediction) ───────────────────────────
+lightgbm==4.5.0
+joblib==1.4.2
+scikit-learn==1.5.2
