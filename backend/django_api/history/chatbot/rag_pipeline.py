@@ -43,6 +43,9 @@ KB_JSON  = Path("/app/dataset/knowledge_base.json")
 OLLAMA_HOST  = os.environ.get("OLLAMA_HOST",  "http://ollama:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2:3b-instruct-q4_K_M")
 
+# URL du service FastAPI ML (visitor_ml_api dans docker-compose)
+ML_API_HOST  = os.environ.get("ML_API_HOST", "http://visitor-ml-api:8000")
+
 # ── Cache CSV ─────────────────────────────────────────────────
 _df_cache: pd.DataFrame | None = None
 _csv_mtime: float = 0.0
@@ -309,21 +312,395 @@ def _retrieve_kb(question: str, n_results: int = 2, min_sim: float = 0.45) -> st
         return "\n".join(f"[{d['title']}] {d['content']}" for d in top2)
 
 
-# ── 3. PROMPT BUILDER ─────────────────────────────────────────
+# ── 2b. ML PREDICTION — FastAPI visitor_ml_api ────────────────
+
+# Prompt de classification sémantique (envoyé à Ollama avant le pipeline principal).
+# Conçu pour être court et résistant aux fautes d'orthographe / formulations libres.
+_CLASSIFY_PROMPT = """\
+Tu es un classificateur. Réponds UNIQUEMENT par un seul mot : FUTUR ou PASSE.
+
+La question porte-t-elle sur le nombre de visiteurs à venir (futur, prévision, demain, \
+semaine prochaine, etc.) ou sur des données déjà enregistrées (passé, hier, bilan, historique) ?
+
+Règle : si la question mentionne une date ou période FUTURE, réponds FUTUR.
+Si elle porte sur des données déjà connues ou passées, réponds PASSE.
+Si aucun des deux n'est clair, réponds PASSE.
+
+Question : {question}
+Réponse :"""
+
+
+def _classify_intent_llm(question: str) -> str:
+    """
+    Appelle Ollama avec un micro-prompt de classification pour détecter
+    si la question porte sur des visiteurs futurs (ML) ou passés (RAG CSV).
+
+    Retourne "FUTUR" ou "PASSE".
+    Résistant aux fautes d'orthographe et aux formulations inhabituelles.
+    Timeout court (10 s) pour ne pas pénaliser la latence.
+    """
+    today_str = datetime.today().strftime("%Y-%m-%d")
+    prompt = _CLASSIFY_PROMPT.format(question=question) + f"\n(Date du jour : {today_str})"
+    try:
+        resp = requests.post(
+            f"{OLLAMA_HOST}/api/generate",
+            json={
+                "model":  OLLAMA_MODEL,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "temperature": 0.0,   # déterministe
+                    "num_predict": 4,     # on attend 1 mot : FUTUR ou PASSE
+                    "seed": 0,
+                },
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+        raw = resp.json().get("response", "").strip().upper()
+        # Tolérance : "FUTUR", "FUTURE", "FUTUR.", "ML", "AVENIR" → FUTUR
+        if any(tok in raw for tok in ("FUTUR", "FUTURE", "AVENIR", "ML", "PREVI")):
+            return "FUTUR"
+        return "PASSE"
+    except Exception:
+        # Si Ollama est lent ou indispo lors de la classification, on tombe
+        # sur le fallback par date ci-dessous (voir _is_future_prediction_query).
+        return "UNKNOWN"
+
+
+def _is_future_prediction_query(question: str) -> bool:
+    """
+    Détermine si la question porte sur des visiteurs FUTURS (→ ML)
+    ou sur les données historiques (→ RAG CSV).
+
+    Stratégie à deux niveaux :
+      1. Date explicite dans la question : décision 100 % fiable par comparaison
+         calendaire, sans appel LLM (cas le plus fréquent en pratique).
+      2. Sinon → classification sémantique par Ollama (résistante aux fautes,
+         aux formulations libres, aux langues mélangées).
+         Si Ollama est indisponible → défaut PASSE (comportement conservateur).
+    """
+    today = datetime.today()
+
+    # ── Niveau 1 : date explicite → décision calendaire ──────────
+    for pattern, fmt in [
+        (r'\b(\d{4}-\d{2}-\d{2})\b', "%Y-%m-%d"),
+        (r'\b(\d{1,2})[/-](\d{1,2})[/-](\d{4})\b', None),
+    ]:
+        for m in re.finditer(pattern, question):
+            try:
+                if fmt:
+                    d = datetime.strptime(m.group(1), fmt)
+                else:
+                    day, month, year = m.group(1), m.group(2), m.group(3)
+                    d = datetime(int(year), int(month), int(day))
+                return d.date() > today.date()
+            except ValueError:
+                pass
+
+    # ── Niveau 2 : classification sémantique par LLM ─────────────
+    intent = _classify_intent_llm(question)
+    if intent == "FUTUR":
+        return True
+    # "PASSE" ou "UNKNOWN" (Ollama indispo) → mode RAG CSV par défaut
+    return False
+
+
+
+def _extract_future_dates(text: str) -> list[str]:
+    """
+    Extrait les dates futures mentionnées dans la question.
+    Retourne une liste de dates au format YYYY-MM-DD.
+    Gère aussi les références relatives : "demain", "semaine prochaine".
+    """
+    today = datetime.today()
+    dates: list[str] = []
+
+    # Dates explicites
+    for m in re.finditer(r'\b(\d{4}-\d{2}-\d{2})\b', text):
+        try:
+            d = datetime.strptime(m.group(1), "%Y-%m-%d")
+            if d.date() >= today.date():
+                dates.append(m.group(1))
+        except ValueError:
+            pass
+
+    for m in re.finditer(r'\b(\d{1,2})[/-](\d{1,2})[/-](\d{4})\b', text):
+        try:
+            d = datetime(int(m.group(3)), int(m.group(2)), int(m.group(1)))
+            if d.date() >= today.date():
+                dates.append(d.strftime("%Y-%m-%d"))
+        except ValueError:
+            pass
+
+    # Références relatives
+    t = text.lower()
+    if "demain" in t:
+        dates.append((today + timedelta(days=1)).strftime("%Y-%m-%d"))
+
+    if "semaine prochaine" in t:
+        # Lundi de la semaine prochaine → dimanche (7 jours)
+        next_monday = today + timedelta(days=(7 - today.weekday()))
+        for i in range(7):
+            dates.append((next_monday + timedelta(days=i)).strftime("%Y-%m-%d"))
+
+    if "mois prochain" in t:
+        # Premier jour du mois suivant
+        if today.month == 12:
+            first_next = datetime(today.year + 1, 1, 1)
+        else:
+            first_next = datetime(today.year, today.month + 1, 1)
+        # 7 premiers jours du mois prochain
+        for i in range(7):
+            dates.append((first_next + timedelta(days=i)).strftime("%Y-%m-%d"))
+
+    # Dédupliquer tout en conservant l'ordre
+    seen: set[str] = set()
+    result: list[str] = []
+    for d in dates:
+        if d not in seen:
+            seen.add(d)
+            result.append(d)
+
+    # Si aucune date trouvée → demain par défaut
+    if not result:
+        result.append((today + timedelta(days=1)).strftime("%Y-%m-%d"))
+
+    return result[:14]  # Max 14 jours pour éviter trop d'appels ML
+
+
+# Coordonnées Sfax (identiques au workflow n8n)
+_SFAX_LAT = 34.7406
+_SFAX_LON = 10.7603
+
+# Cache météo : évite de rappeler Open-Meteo pour la même date dans la même requête
+_weather_cache: dict[str, dict] = {}
+
+# Cache jours fériés Tunisie par année
+_holiday_cache: dict[int, set[str]] = {}
+
+
+def _fetch_weather(date_str: str) -> dict:
+    """
+    Récupère les prévisions météo pour une date future via Open-Meteo.
+    Utilise /forecast avec daily (temperature_2m_max, wind_speed_10m_max)
+    pour couvrir les dates à venir (jusqu'à ~16 jours).
+
+    Retourne : {"temperature": float, "wind_speed": float, "source": str}
+    Fallback Sfax été si Open-Meteo est inaccessible ou date hors horizon.
+    """
+    if date_str in _weather_cache:
+        return _weather_cache[date_str]
+
+    fallback = {"temperature": 32.0, "wind_speed": 15.0, "source": "fallback_sfax"}
+
+    try:
+        resp = requests.get(
+            "https://api.open-meteo.com/v1/forecast",
+            params={
+                "latitude":          _SFAX_LAT,
+                "longitude":         _SFAX_LON,
+                "daily":             "temperature_2m_max,wind_speed_10m_max",
+                "timezone":          "Africa/Tunis",
+                "start_date":        date_str,
+                "end_date":          date_str,
+                "forecast_days":     16,
+            },
+            timeout=8,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        daily = data.get("daily", {})
+        temps = daily.get("temperature_2m_max", [])
+        winds = daily.get("wind_speed_10m_max", [])
+
+        if temps and winds and temps[0] is not None:
+            result = {
+                "temperature": round(float(temps[0]), 1),
+                "wind_speed":  round(float(winds[0] if winds[0] is not None else 15.0), 1),
+                "source":      "open-meteo",
+            }
+            _weather_cache[date_str] = result
+            return result
+
+    except Exception:
+        pass
+
+    _weather_cache[date_str] = fallback
+    return fallback
+
+
+def _fetch_holidays_tn(year: int) -> set[str]:
+    """
+    Récupère la liste des jours fériés tunisiens pour une année via Nager.Date.
+    Retourne un set de dates YYYY-MM-DD.
+    Résultat mis en cache par année.
+    """
+    if year in _holiday_cache:
+        return _holiday_cache[year]
+
+    try:
+        resp = requests.get(
+            f"https://date.nager.at/api/v3/PublicHolidays/{year}/TN",
+            timeout=8,
+        )
+        if resp.status_code == 200:
+            holidays = {h["date"] for h in resp.json() if "date" in h}
+            _holiday_cache[year] = holidays
+            return holidays
+    except Exception:
+        pass
+
+    _holiday_cache[year] = set()
+    return set()
+
+
+def _get_type_jour(date_str: str) -> tuple[str, str]:
+    """
+    Détermine le type du jour (normal / ferie) pour une date donnée.
+    Retourne (type_jour, label_fr) — ex: ("ferie", "jour férié").
+    """
+    year = int(date_str[:4])
+    holidays = _fetch_holidays_tn(year)
+    if date_str in holidays:
+        return "ferie", "jour férié 🎉"
+    return "normal", "jour normal"
+
+
+def _fetch_ml_prediction(date_str: str) -> dict:
+    """
+    Enrichit la date avec météo + statut férié, puis appelle
+    POST /predict sur la FastAPI ML (LightGBM).
+
+    Retourne un dict contenant :
+      - "date", "total_daily", "temperature", "wind_speed",
+        "type_jour", "type_jour_label", "weather_source"
+      - "error" en cas d'échec
+    """
+    # ── 1. Enrichissement météo ──────────────────────────────────
+    weather   = _fetch_weather(date_str)
+    temperature = weather["temperature"]
+    wind_speed  = weather["wind_speed"]
+    weather_src = weather["source"]
+
+    # ── 2. Statut jour férié ────────────────────────────────────
+    type_jour, type_jour_label = _get_type_jour(date_str)
+
+    # ── 3. Appel FastAPI ML ─────────────────────────────────────
+    try:
+        resp = requests.post(
+            f"{ML_API_HOST}/predict",
+            json={
+                "date":        date_str,
+                "temperature": temperature,
+                "wind_speed":  wind_speed,
+                "type_jour":   type_jour,
+            },
+            timeout=20,
+        )
+        resp.raise_for_status()
+        ml_data = resp.json()
+
+        # Calcul du total journalier depuis la liste de prédictions horaires
+        predictions = ml_data.get("predictions", [])
+        # Chaque entrée = (hour, camera) → on déduplique par heure
+        # (summe des 2 caméras pour avoir le total par heure, puis total jour)
+        seen_hours: dict[int, int] = {}
+        for p in predictions:
+            h = p.get("hour", 0)
+            v = p.get("total_visits", 0)
+            seen_hours[h] = seen_hours.get(h, 0) + v
+        total_daily = sum(seen_hours.values())
+
+        return {
+            "date":             date_str,
+            "total_daily":      total_daily,
+            "temperature":      temperature,
+            "wind_speed":       wind_speed,
+            "type_jour":        type_jour,
+            "type_jour_label":  type_jour_label,
+            "weather_source":   weather_src,
+            "raw":              ml_data,   # pour debug éventuel
+        }
+
+    except requests.exceptions.ConnectionError:
+        return {"error": f"ML API non joignable ({ML_API_HOST})", "date": date_str}
+    except requests.exceptions.Timeout:
+        return {"error": "ML API timeout (>20 s)", "date": date_str}
+    except requests.exceptions.HTTPError as exc:
+        return {"error": f"ML API HTTP {getattr(exc.response,'status_code','?')}", "date": date_str}
+    except Exception as exc:
+        return {"error": str(exc), "date": date_str}
+
+
+def _build_ml_context(question: str) -> str:
+    """
+    Construit le bloc de contexte ML complet à injecter dans le prompt Ollama.
+
+    Pour chaque date future détectée dans la question :
+      1. Récupère la météo prévue (Open-Meteo, Sfax)
+      2. Vérifie si c'est un jour férié tunisien (Nager.Date)
+      3. Appelle la FastAPI ML avec ces features
+      4. Formate le résultat pour le LLM
+
+    En cas d'indisponibilité d'Open-Meteo ou Nager, des valeurs de fallback
+    sont utilisées (la prédiction ML reste possible, moins précise).
+    """
+    dates = _extract_future_dates(question)
+    lines: list[str] = ["=== PRÉVISIONS ML (LightGBM — features météo + calendrier) ==="]
+
+    any_success = False
+    for date_str in dates:
+        result = _fetch_ml_prediction(date_str)
+
+        if "error" in result:
+            lines.append(f"  {date_str} : ⚠️ {result['error']}")
+            continue
+
+        any_success = True
+        total     = result["total_daily"]
+        temp      = result["temperature"]
+        wind      = result["wind_speed"]
+        tj_label  = result["type_jour_label"]
+        wsrc      = result["weather_source"]
+
+        # Ligne principale
+        lines.append(f"  {date_str} : {total} visiteurs prévus")
+
+        # Détail des features utilisées (transparence pour le LLM)
+        meteo_note = f"météo {'prévue' if wsrc == 'open-meteo' else 'estimée (fallback)'}"
+        lines.append(f"    └─ {tj_label} | {meteo_note} : {temp}°C, vent {wind} km/h")
+
+    if not any_success:
+        lines.append("  ⚠️ Aucune prédiction ML disponible pour les dates demandées.")
+
+    lines.append(
+        "\nNote : prévisions basées sur les données historiques, la météo Open-Meteo "
+        "et les jours fériés tunisiens (Nager.Date). Il s'agit d'estimations."
+    )
+    return "\n".join(lines)
+
+
+
 
 _SYSTEM = """\
 Tu es l'assistant analytique d'Anavid Store 360.
 Réponds UNIQUEMENT en français, de façon concise et structurée.
 Utilise UNIQUEMENT les données du CONTEXTE ci-dessous.
-Ne fabrique pas de chiffres. Formate avec des emojis et des tirets."""
+Ne fabrique pas de chiffres. Formate avec des emojis et des tirets.
+Quand des prévisions ML sont disponibles, précise toujours qu'il s'agit d'estimations."""
 
 
-def _build_prompt(question: str, csv_ctx: str, kb_ctx: str, history: str = "") -> str:
+def _build_prompt(question: str, csv_ctx: str, kb_ctx: str, history: str = "", ml_ctx: str = "") -> str:
     history_block = f"=== HISTORIQUE DE LA CONVERSATION ===\n{history}\n\n" if history else ""
-    kb_block = f"=== BASE DE CONNAISSANCE (FAQ) ===\n{kb_ctx}\n\n" if kb_ctx else ""
+    kb_block  = f"=== BASE DE CONNAISSANCE (FAQ) ===\n{kb_ctx}\n\n" if kb_ctx else ""
+    ml_block  = f"{ml_ctx}\n\n" if ml_ctx else ""
+    csv_block = f"=== DONNÉES VISITEURS HISTORIQUES (CSV) ===\n{csv_ctx}\n\n" if csv_ctx and csv_ctx != "Données non disponibles." else ""
     return (
         f"{_SYSTEM}\n\n"
-        f"=== DONNÉES VISITEURS (CSV) ===\n{csv_ctx}\n\n"
+        f"{ml_block}"
+        f"{csv_block}"
         f"{kb_block}"
         f"{history_block}"
         f"=== QUESTION ===\n{question}\n\n"
@@ -358,6 +735,13 @@ def _call_ollama(prompt: str) -> str:
 
 def run_rag_pipeline(question: str, history: list[dict[str, str]] | None = None) -> dict[str, Any]:
     """
+    Pipeline principal du chatbot.
+
+    Deux modes de fonctionnement selon la nature de la question :
+
+    1. Question sur les données PASSÉES → RAG classique (CSV + KB + Ollama)
+    2. Question sur des visiteurs FUTURS → Appel FastAPI ML + Ollama pour formuler
+
     Args:
         question : question courante de l'utilisateur.
         history  : liste d'échanges précédents, format
@@ -378,13 +762,28 @@ def run_rag_pipeline(question: str, history: list[dict[str, str]] | None = None)
 
     # La requête utilisée pour le retrieval combine la question courante
     # avec le dernier message utilisateur de l'historique, pour résoudre
-    # les questions de suivi elliptiques (ex: "Et hier ?").
+    # les questions de suivi elliptiques (ex: "Et demain ?").
     last_user_turns = [h["content"] for h in recent_history if h.get("role") == "user" and h.get("content")]
     retrieval_query = " ".join(last_user_turns[-1:] + [question]) if last_user_turns else question
 
-    csv_ctx = _build_csv_context(retrieval_query)
-    kb_ctx  = "" if _is_pure_data_query(retrieval_query) else _retrieve_kb(retrieval_query)
-    prompt  = _build_prompt(question, csv_ctx, kb_ctx, history=history_text)
+    # ── Détection : question future → ML, question passée → RAG CSV ──
+    is_future = _is_future_prediction_query(retrieval_query)
+
+    if is_future:
+        # Mode ML : on appelle la FastAPI, pas besoin du CSV historique
+        ml_ctx  = _build_ml_context(retrieval_query)
+        # La KB peut apporter du contexte sur le modèle de prévision
+        kb_ctx  = _retrieve_kb(retrieval_query)
+        csv_ctx = ""  # pas de données passées nécessaires pour une prévision
+        mode    = "ml_prediction"
+    else:
+        # Mode RAG classique : CSV + KB
+        ml_ctx  = ""
+        csv_ctx = _build_csv_context(retrieval_query)
+        kb_ctx  = "" if _is_pure_data_query(retrieval_query) else _retrieve_kb(retrieval_query)
+        mode    = "rag"
+
+    prompt = _build_prompt(question, csv_ctx, kb_ctx, history=history_text, ml_ctx=ml_ctx)
 
     try:
         answer = _call_ollama(prompt)
@@ -410,12 +809,15 @@ def run_rag_pipeline(question: str, history: list[dict[str, str]] | None = None)
     return {
         "answer":  answer,
         "model":   OLLAMA_MODEL,
+        "mode":    mode,        # "rag" ou "ml_prediction" — utile pour le frontend/debug
         "sources": {
-            "csv":      str(DATA_CSV),
-            "kb":       str(KB_JSON),
+            "csv":        str(DATA_CSV) if not is_future else None,
+            "ml_api":     f"{ML_API_HOST}/predict" if is_future else None,
+            "kb":         str(KB_JSON),
             "embeddings": f"{OLLAMA_HOST}/api/embeddings",
         },
     }
+
 
 
 # ── Helpers ───────────────────────────────────────────────────
