@@ -75,6 +75,7 @@ services:
         ollama serve &
         sleep 5 &&
         ollama pull llama3.2:3b-instruct-q4_K_M &&
+        ollama pull nomic-embed-text &&
         wait
       "
     #deploy:
@@ -149,6 +150,12 @@ services:
       - VISITOR_DATA_CSV=/app/data/shoppingclub_2025_2026.csv
       - OLLAMA_HOST=http://ollama:11434
       - OLLAMA_MODEL=llama3.2:3b-instruct-q4_K_M
+      # FIX 1 — Modèle dédié aux embeddings KB (séparé du modèle de génération).
+      # nomic-embed-text est optimisé pour la recherche sémantique contrairement
+      # à llama3.2 qui est un modèle de génération. Taille : ~274 MB.
+      # ⚠️  Après avoir changé cette valeur, redémarrer django_api pour vider
+      #     le cache _kb_embeddings (calculé une seule fois au premier appel).
+      - OLLAMA_EMBED_MODEL=nomic-embed-text
       # ── Gmail SMTP ───────────────────────────────────────────────────────────
       - EMAIL_HOST=smtp.gmail.com
       - EMAIL_PORT=587
