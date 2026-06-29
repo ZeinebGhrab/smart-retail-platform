@@ -1,12 +1,12 @@
 // ============================================================
 // src/services/auth.ts — Client API pour l'authentification
-// (inscription / connexion / session) — backend Django (accounts/)
 //
-// Endpoints consommés :
-//   POST /api/auth/register/  ← Register.tsx
-//   POST /api/auth/login/     ← Login.tsx
-//   POST /api/auth/logout/
-//   GET  /api/auth/me/
+// Stratégie COOKIE HttpOnly :
+//   • login / register  → le backend pose les tokens dans des cookies HttpOnly
+//   • Le frontend ne stocke PLUS les tokens (ni localStorage, ni sessionStorage)
+//   • Seul le profil utilisateur (non-sensible) est gardé en mémoire
+//   • isAuthenticated() se base sur la présence du profil en mémoire
+//     + un appel /me/ au démarrage pour vérifier la session
 // ============================================================
 
 import { API_BASE_URL } from './api';
@@ -23,16 +23,11 @@ export interface AuthUser {
   date_joined: string;
 }
 
-export interface AuthTokens {
-  access: string;
-  refresh: string;
-}
-
-export interface AuthResponse extends AuthTokens {
+export interface AuthResponse {
   user: AuthUser;
+  // Les tokens ne sont PLUS dans le body — ils voyagent en cookie HttpOnly
 }
 
-/** Champs du formulaire Register.tsx (camelCase côté front). */
 export interface RegisterPayload {
   firstName: string;
   lastName: string;
@@ -42,11 +37,6 @@ export interface RegisterPayload {
   confirm: string;
 }
 
-/**
- * Erreur renvoyée par l'API auth. `fieldErrors` est déjà converti en clés
- * camelCase (firstName, lastName, storeName, email, password, confirm)
- * pour être branché directement sur le state `errors` des formulaires.
- */
 export class AuthApiError extends Error {
   status: number;
   fieldErrors: Record<string, string>;
@@ -60,61 +50,55 @@ export class AuthApiError extends Error {
 }
 
 // ------------------------------------------------------------
-// Session locale (tokens JWT + profil utilisateur)
-// "remember" (Login.tsx) → localStorage (persiste après fermeture du
-// navigateur) sinon sessionStorage (effacé à la fermeture de l'onglet).
+// Session en mémoire (profil uniquement — pas les tokens)
+// Les tokens sont dans les cookies HttpOnly gérés par le navigateur.
 // ------------------------------------------------------------
-const ACCESS_KEY = 'anavid_access_token';
-const REFRESH_KEY = 'anavid_refresh_token';
-const USER_KEY = 'anavid_user';
+let _currentUser: AuthUser | null = null;
 
-function clearStorage(storage: Storage): void {
-  storage.removeItem(ACCESS_KEY);
-  storage.removeItem(REFRESH_KEY);
-  storage.removeItem(USER_KEY);
-}
-
-export function saveSession(data: AuthResponse, remember: boolean = true): void {
-  // On nettoie les deux storages avant d'écrire pour éviter un état
-  // incohérent si l'utilisateur change d'avis entre deux connexions.
-  clearStorage(localStorage);
-  clearStorage(sessionStorage);
-
-  const storage = remember ? localStorage : sessionStorage;
-  storage.setItem(ACCESS_KEY, data.access);
-  storage.setItem(REFRESH_KEY, data.refresh);
-  storage.setItem(USER_KEY, JSON.stringify(data.user));
-}
-
-export function clearSession(): void {
-  clearStorage(localStorage);
-  clearStorage(sessionStorage);
-}
-
-function readEither(key: string): string | null {
-  return localStorage.getItem(key) ?? sessionStorage.getItem(key);
-}
-
-export function getAccessToken(): string | null {
-  return readEither(ACCESS_KEY);
-}
-
-export function getRefreshToken(): string | null {
-  return readEither(REFRESH_KEY);
+export function setCurrentUser(user: AuthUser | null): void {
+  _currentUser = user;
 }
 
 export function getStoredUser(): AuthUser | null {
-  const raw = readEither(USER_KEY);
-  return raw ? (JSON.parse(raw) as AuthUser) : null;
+  return _currentUser;
 }
 
-/** Vrai si un access token est présent localement (présence uniquement, pas de vérif d'expiration). */
+/**
+ * Vrai si on a un profil utilisateur en mémoire.
+ * Au démarrage de l'app, bootstrapAuth() revalide via /me/.
+ */
 export function isAuthenticated(): boolean {
-  return !!getAccessToken();
+  return _currentUser !== null;
+}
+
+export function clearSession(): void {
+  _currentUser = null;
 }
 
 // ------------------------------------------------------------
-// Mapping des erreurs de validation (snake_case backend → camelCase front)
+// Bootstrap : appelé une fois au démarrage (App.tsx)
+// Vérifie si le cookie de session est encore valide en appelant /me/.
+// ------------------------------------------------------------
+export async function bootstrapAuth(): Promise<AuthUser | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/me/`, {
+      credentials: 'include', // envoie les cookies HttpOnly
+    });
+    if (!res.ok) {
+      _currentUser = null;
+      return null;
+    }
+    const user: AuthUser = await res.json();
+    _currentUser = user;
+    return user;
+  } catch {
+    _currentUser = null;
+    return null;
+  }
+}
+
+// ------------------------------------------------------------
+// Helpers internes
 // ------------------------------------------------------------
 const FIELD_MAP: Record<string, string> = {
   first_name: 'firstName',
@@ -133,35 +117,27 @@ function firstMessage(value: unknown): string {
 function parseFieldErrors(body: Record<string, unknown>): Record<string, string> {
   const errors: Record<string, string> = {};
   Object.entries(body).forEach(([key, value]) => {
-    if (key === 'detail') return; // message global, pas un champ
+    if (key === 'detail') return;
     errors[FIELD_MAP[key] || key] = firstMessage(value);
   });
   return errors;
 }
 
-async function postJSON<T>(path: string, body: unknown, accessToken?: string): Promise<T> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-
+async function postJSON<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',
-    headers,
+    credentials: 'include',   // <-- envoie ET reçoit les cookies HttpOnly
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
 
   let data: any = {};
-  try {
-    data = await res.json();
-  } catch {
-    // Réponse vide (ex: certaines erreurs serveur) — on garde data = {}
-  }
+  try { data = await res.json(); } catch { /* réponse vide */ }
 
   if (!res.ok) {
     const fieldErrors = parseFieldErrors(data);
     const message =
-      data.detail ||
-      Object.values(fieldErrors)[0] ||
-      'Une erreur est survenue. Réessayez.';
+      data.detail || Object.values(fieldErrors)[0] || 'Une erreur est survenue.';
     throw new AuthApiError(message, res.status, fieldErrors);
   }
 
@@ -169,62 +145,60 @@ async function postJSON<T>(path: string, body: unknown, accessToken?: string): P
 }
 
 // ------------------------------------------------------------
-// Endpoints
+// Endpoints publics
 // ------------------------------------------------------------
 
-/**
- * POST /api/auth/register/ — création de compte (Register.tsx).
- * Stocke la session (déjà connecté) au succès.
- */
-export async function register(fields: RegisterPayload): Promise<AuthResponse> {
+/** POST /api/auth/register/ — le backend pose les cookies, on stocke le profil. */
+export async function register(fields: RegisterPayload): Promise<AuthUser> {
   const payload = {
-    first_name: fields.firstName,
-    last_name: fields.lastName,
-    store_name: fields.storeName,
-    email: fields.email,
-    password: fields.password,
-    confirm: fields.confirm,
+    first_name: fields.firstName, last_name: fields.lastName,
+    store_name: fields.storeName, email: fields.email,
+    password: fields.password, confirm: fields.confirm,
   };
   const data = await postJSON<AuthResponse>('/auth/register/', payload);
-  saveSession(data, true);
-  return data;
+  _currentUser = data.user;
+  return data.user;
 }
 
-/**
- * POST /api/auth/login/ — connexion (Login.tsx).
- * `remember` détermine si la session survit à la fermeture du navigateur.
- */
-export async function login(email: string, password: string, remember: boolean = true): Promise<AuthResponse> {
+/** POST /api/auth/login/ — le backend pose les cookies, on stocke le profil. */
+export async function login(
+  email: string,
+  password: string,
+  _remember: boolean = true, // conservé pour compatibilité API — plus utilisé
+): Promise<AuthUser> {
   const data = await postJSON<AuthResponse>('/auth/login/', { email, password });
-  saveSession(data, remember);
-  return data;
+  _currentUser = data.user;
+  return data.user;
 }
 
-/** POST /api/auth/logout/ — invalide le refresh token côté serveur puis nettoie la session locale. */
+/** POST /api/auth/logout/ — le backend blackliste + supprime les cookies. */
 export async function logout(): Promise<void> {
-  const refresh = getRefreshToken();
-  const access = getAccessToken();
-  if (refresh && access) {
-    try {
-      await postJSON('/auth/logout/', { refresh }, access);
-    } catch {
-      // On nettoie quand même la session locale (token déjà expiré, réseau coupé, etc.)
-    }
+  try {
+    await fetch(`${API_BASE_URL}/auth/logout/`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch {
+    // On nettoie quand même la session locale
   }
-  clearSession();
+  _currentUser = null;
 }
 
-/** GET /api/auth/me/ — profil de l'utilisateur connecté (vérifie/rafraîchit le profil en cache). */
+/** GET /api/auth/me/ — profil de l'utilisateur connecté. */
 export async function getMe(): Promise<AuthUser> {
-  const access = getAccessToken();
   const res = await fetch(`${API_BASE_URL}/auth/me/`, {
-    headers: access ? { Authorization: `Bearer ${access}` } : {},
+    credentials: 'include',
   });
   if (!res.ok) {
+    _currentUser = null;
     throw new AuthApiError('Session expirée, merci de vous reconnecter.', res.status);
   }
-  return res.json() as Promise<AuthUser>;
+  const user: AuthUser = await res.json();
+  _currentUser = user;
+  return user;
 }
+
 // ── Mot de passe oublié ──────────────────────────────────────
 
 export async function requestPasswordReset(email: string): Promise<{ detail: string }> {
@@ -236,10 +210,13 @@ export async function verifyResetCode(email: string, code: string): Promise<{ de
 }
 
 export async function confirmPasswordReset(
-  email: string,
-  code: string,
-  password: string,
-  confirm: string,
+  email: string, code: string, password: string, confirm: string,
 ): Promise<{ detail: string }> {
   return postJSON('/auth/password-reset/confirm/', { email, code, password, confirm });
 }
+
+// ── Compat : ces exports n'ont plus de sens mais sont gardés pour
+//    éviter des erreurs de compile dans du code non encore mis à jour.
+export const getAccessToken  = (): null => null;
+export const getRefreshToken = (): null => null;
+export const saveSession     = (): void => {};

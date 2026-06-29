@@ -1,5 +1,13 @@
-import React from 'react';
-import { IonApp, IonRouterOutlet, setupIonicReact } from '@ionic/react';
+// ============================================================
+// src/app/App.tsx
+// Ajout du bootstrapAuth() au démarrage :
+//   • Appelle GET /api/auth/me/ avec credentials: 'include'
+//   • Si le cookie est encore valide → utilisateur reconnecté silencieusement
+//   • Sinon → isAuthenticated() = false → redirect /login par PrivateRoute
+// ============================================================
+
+import React, { useEffect, useState } from 'react';
+import { IonApp, IonRouterOutlet, IonSpinner, setupIonicReact } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
 import { Route, Redirect } from 'react-router-dom';
 
@@ -15,33 +23,49 @@ import Dashboard from '../features/dashboard/Dashboard';
 import Login from '../features/auth/Login';
 import Register from '../features/auth/Register';
 import PrivateRoute from '../components/PrivateRoute';
-import { isAuthenticated } from '../services/auth';
-import { useFirebaseMessaging } from '../hooks/useFirebaseMessaging';
 import Alerts from '../features/alerts/Alerts';
 import AlertDetail from '../features/alerts/AlertDetail';
+import { bootstrapAuth, isAuthenticated } from '../services/auth';
+import { useFirebaseMessaging } from '../hooks/useFirebaseMessaging';
 
 setupIonicReact();
 
 const App: React.FC = () => {
-  // Enregistre le token FCM (natif sur Android, best effort sur web)
-  // une seule fois au démarrage de l'app.
   useFirebaseMessaging();
+
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    // Vérifie silencieusement si le cookie de session est encore valide.
+    // Tant qu'on attend, on affiche un spinner pour éviter un flash de /login.
+    bootstrapAuth().finally(() => setReady(true));
+  }, []);
+
+  if (!ready) {
+    return (
+      <IonApp>
+        <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center' }}>
+          <IonSpinner name="crescent" />
+        </div>
+      </IonApp>
+    );
+  }
 
   return (
     <IonApp>
       <IonReactRouter>
         <IonRouterOutlet>
-          {/* ── Authentification (publiques) ───────────────── */}
+          {/* ── Publiques ───────────────────────────────────── */}
           <Route exact path="/login"    component={Login}    />
           <Route exact path="/register" component={Register} />
 
-          {/* ── Application (protégées par token JWT) ──────── */}
+          {/* ── Protégées par session cookie ────────────────── */}
           <PrivateRoute exact path="/dashboard"   component={Dashboard}  />
           <PrivateRoute exact path="/chat"        component={ChatIA}     />
           <PrivateRoute exact path="/predictions" component={Historique} />
-          <PrivateRoute exact path="/alerts" component={Alerts} />
-          <PrivateRoute exact path="/alerts/:id" component={AlertDetail} />
-          {/* Connecté → dashboard, sinon → login */}
+          <PrivateRoute exact path="/alerts"      component={Alerts}     />
+          <PrivateRoute exact path="/alerts/:id"  component={AlertDetail} />
+
           <Redirect exact from="/" to={isAuthenticated() ? '/dashboard' : '/login'} />
         </IonRouterOutlet>
         <TabBar />

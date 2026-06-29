@@ -7,7 +7,7 @@ Données visiteurs lues depuis : backend/data/shoppingclub_2025_2026.csv
 Base de données :
   - Par défaut : SQLite (db.sqlite3) — utilisée seulement pour l'admin/
     le framework Django (pas pour les données visiteurs, qui restent en CSV).
-  - Optionnel  :  mysql— définir la variable d'environnement
+  - Optionnel  : mysql — définir la variable d'environnement
     DB_ENGINE=mysql ainsi que DB_NAME, DB_USER, DB_PASSWORD,
     DB_HOST, DB_PORT pour basculer.
 """
@@ -91,10 +91,9 @@ if os.environ.get("DB_ENGINE", "").lower() == "mysql":
             'HOST': os.environ.get("DB_HOST"),
             'PORT': os.environ.get("DB_PORT"),
             'OPTIONS': {
-              'charset': 'utf8mb4',
-              'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+                'charset': 'utf8mb4',
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
             },
-            
         }
     }
 else:
@@ -104,7 +103,6 @@ else:
             "NAME": BASE_DIR / "db.sqlite3",
         }
     }
-
 
 AUTH_PASSWORD_VALIDATORS = []
 
@@ -118,24 +116,37 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # ------------------------------------------------------------
-# CORS — toutes origines autorisées (dev). L'authentification se fait
-# via JWT (header Authorization), pas via cookies/sessions — CORS
-# ouvert n'expose donc pas de session à voler.
+# CORS
+# withCredentials: true côté frontend exige une liste explicite
+# d'origines (CORS_ALLOW_ALL_ORIGINS est incompatible avec les cookies).
 # ------------------------------------------------------------
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOWED_ORIGINS = os.environ.get(
+    "CORS_ALLOWED_ORIGINS",
+    "http://localhost:5173,http://localhost:8100,http://localhost",
+).split(",")
+
+CORS_ALLOW_CREDENTIALS = True   # indispensable pour que les cookies voyagent
+
+CSRF_TRUSTED_ORIGINS = os.environ.get(
+    "CSRF_TRUSTED_ORIGINS",
+    "http://localhost:5173,http://localhost:8100,http://localhost",
+).split(",")
 
 # ------------------------------------------------------------
 # Django REST Framework
 # ------------------------------------------------------------
 REST_FRAMEWORK = {
     # Permission par défaut : ouverte (endpoints history/ non protégés).
-    # Les vues accounts/ qui le nécessitent (ex: /api/auth/me/) déclarent
-    # explicitement IsAuthenticated via @permission_classes.
+    # Les vues qui le nécessitent déclarent explicitement IsAuthenticated.
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.AllowAny",
     ],
+    # CookieJWTAuthentication lit d'abord le header Authorization (Bearer),
+    # puis le cookie HttpOnly "anavid_access" en fallback.
+    # Isolé dans accounts/authentication.py pour éviter l'import circulaire
+    # qui survenait quand DRF chargeait accounts.views trop tôt.
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "accounts.authentication.CookieJWTAuthentication",
     ],
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
@@ -145,12 +156,12 @@ REST_FRAMEWORK = {
 }
 
 # ------------------------------------------------------------
-# JWT (djangorestframework-simplejwt) — voir accounts/views.py
+# JWT (djangorestframework-simplejwt)
 # ------------------------------------------------------------
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    "ACCESS_TOKEN_LIFETIME":  timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=14),
-    "ROTATE_REFRESH_TOKENS": True,
+    "ROTATE_REFRESH_TOKENS":  True,
     "BLACKLIST_AFTER_ROTATION": True,
     "AUTH_HEADER_TYPES": ("Bearer",),
     "USER_ID_FIELD": "id",
@@ -158,8 +169,27 @@ SIMPLE_JWT = {
 }
 
 # ------------------------------------------------------------
+# Cookies JWT HttpOnly
+# Les tokens ne transitent plus dans le body JSON mais dans des
+# cookies HttpOnly posés/lus par accounts/views.py.
+#
+# En développement (HTTP) :
+#   JWT_AUTH_COOKIE_SECURE   = False
+#   JWT_AUTH_COOKIE_SAMESITE = "Lax"
+#
+# En production (HTTPS, domaine unique) :
+#   JWT_AUTH_COOKIE_SECURE   = True
+#   JWT_AUTH_COOKIE_SAMESITE = "Lax"   (même domaine)  ou
+#   JWT_AUTH_COOKIE_SAMESITE = "None"  (cross-site strict)
+# ------------------------------------------------------------
+JWT_AUTH_COOKIE           = "anavid_access"
+JWT_AUTH_REFRESH_COOKIE   = "anavid_refresh"
+JWT_AUTH_COOKIE_SECURE    = os.environ.get("JWT_COOKIE_SECURE", "false").lower() == "true"
+JWT_AUTH_COOKIE_SAMESITE  = os.environ.get("JWT_COOKIE_SAMESITE", "Lax")
+JWT_AUTH_COOKIE_HTTP_ONLY = True
+
+# ------------------------------------------------------------
 # Documentation API — Swagger / OpenAPI (drf-spectacular)
-# Accessible sur /api/docs/ (Swagger UI) et /api/schema/ (OpenAPI JSON)
 # ------------------------------------------------------------
 SPECTACULAR_SETTINGS = {
     "TITLE": "Anavid Store 360 — API",
@@ -177,8 +207,8 @@ SPECTACULAR_SETTINGS = {
         "| **ML `/health`** | `http://localhost:8001/health` | Statut du microservice ML |\n"
         "| **ML Swagger** | `http://localhost:8001/docs` | Documentation interactive du modèle ML |\n\n"
         "## Authentification\n\n"
-        "Les endpoints protégés utilisent **JWT Bearer**. "
-        "Obtenez un token via `POST /api/auth/login/`, puis cliquez sur **Authorize** ci-dessus "
+        "Les endpoints protégés utilisent **JWT via cookie HttpOnly** (`anavid_access`). "
+        "Pour Swagger, obtenez un token via `POST /api/auth/login/`, puis cliquez sur **Authorize** "
         "et saisissez : `Bearer <votre_token>`.\n\n"
         "## Communication interne Docker\n\n"
         "Depuis les conteneurs, remplacer `localhost` par les noms de service Docker :\n"
@@ -216,8 +246,9 @@ VISITOR_DATA_CSV = os.environ.get(
     "VISITOR_DATA_CSV",
     str(BACKEND_DIR / "data" / "shoppingclub_2025_2026.csv"),
 )
+
 # ------------------------------------------------------------
-# Email — Gmail SMTP (variables lues depuis .env via docker-compose)
+# Email — Gmail SMTP
 # ------------------------------------------------------------
 EMAIL_BACKEND       = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST          = os.environ.get("EMAIL_HOST", "smtp.gmail.com")
