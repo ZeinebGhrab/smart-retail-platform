@@ -4,6 +4,12 @@
 //   • Appelle GET /api/auth/me/ avec credentials: 'include'
 //   • Si le cookie est encore valide → utilisateur reconnecté silencieusement
 //   • Sinon → isAuthenticated() = false → redirect /login par PrivateRoute
+//
+// CORRECTIF : la <Redirect from="/" /> était évaluée une seule fois à la
+// construction du composant. Remplacée par <RootRedirect /> qui relit
+// isAuthenticated() à chaque render.
+// Ajout de l'événement "auth:ready" après bootstrapAuth() pour notifier
+// PrivateRoute de se re-rendre avec l'état session à jour.
 // ============================================================
 
 import React, { useEffect, useState } from 'react';
@@ -30,6 +36,10 @@ import { useFirebaseMessaging } from '../hooks/useFirebaseMessaging';
 
 setupIonicReact();
 
+const RootRedirect: React.FC = () => (
+  <Redirect to={isAuthenticated() ? '/dashboard' : '/login'} />
+);
+
 const App: React.FC = () => {
   useFirebaseMessaging();
 
@@ -38,7 +48,10 @@ const App: React.FC = () => {
   useEffect(() => {
     // Vérifie silencieusement si le cookie de session est encore valide.
     // Tant qu'on attend, on affiche un spinner pour éviter un flash de /login.
-    bootstrapAuth().finally(() => setReady(true));
+    bootstrapAuth().finally(() => {
+      setReady(true);
+      window.dispatchEvent(new Event('auth:ready'));
+    });
   }, []);
 
   if (!ready) {
@@ -66,7 +79,8 @@ const App: React.FC = () => {
           <PrivateRoute exact path="/alerts"      component={Alerts}     />
           <PrivateRoute exact path="/alerts/:id"  component={AlertDetail} />
 
-          <Redirect exact from="/" to={isAuthenticated() ? '/dashboard' : '/login'} />
+          {/* CORRECTIF : RootRedirect relit isAuthenticated() à chaque render */}
+          <Route exact path="/" component={RootRedirect} />
         </IonRouterOutlet>
         <TabBar />
       </IonReactRouter>

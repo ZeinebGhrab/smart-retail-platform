@@ -78,19 +78,19 @@ export function clearSession(): void {
 // ------------------------------------------------------------
 // Bootstrap : appelé une fois au démarrage (App.tsx)
 // Vérifie si le cookie de session est encore valide en appelant /me/.
+// CORRECTIF : utilise authAxios au lieu de fetch natif pour bénéficier
+// du refresh automatique du cookie access via le cookie refresh.
+// Si le access token est expiré, authAxios tente un /auth/refresh/ avant
+// de déclarer la session invalide.
 // ------------------------------------------------------------
 export async function bootstrapAuth(): Promise<AuthUser | null> {
+  // Import dynamique pour éviter la dépendance circulaire
+  // (authAxios importe clearSession depuis ce fichier)
+  const { default: authAxios } = await import('./authAxios');
   try {
-    const res = await fetch(`${API_BASE_URL}/auth/me/`, {
-      credentials: 'include', // envoie les cookies HttpOnly
-    });
-    if (!res.ok) {
-      _currentUser = null;
-      return null;
-    }
-    const user: AuthUser = await res.json();
-    _currentUser = user;
-    return user;
+    const res = await authAxios.get<AuthUser>('/auth/me/');
+    _currentUser = res.data;
+    return res.data;
   } catch {
     _currentUser = null;
     return null;

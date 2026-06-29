@@ -1,12 +1,15 @@
-import { getAccessToken } from '../../services/auth';
+// ============================================================
+// src/features/alerts/alerts.api.ts
+//
+// Les cookies HttpOnly (anavid_access) sont envoyés automatiquement
+// par le navigateur grâce à credentials: 'include'.
+// authAxios est utilisé pour bénéficier du refresh automatique sur 401.
+// ============================================================
+
+import authAxios from '../../services/authAxios';
 import { SecurityAlert, AlertStatus } from './alert.model';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
-
-const headers = () => ({
-  'Content-Type': 'application/json',
-  Authorization: `Bearer ${getAccessToken()}`,
-});
 
 // ── Mapping BD → AlertStatus frontend ──────────────────────────
 function mapStatus(qualification: string | null): AlertStatus {
@@ -60,28 +63,29 @@ export async function fetchAlerts(
     orgId?: number;
     limit?: number;
     offset?: number;
-    qualification?: string | null;  // valeur backend : 'vol' | 'suspicious' | 'false_alarm' | 'null' | undefined
+    qualification?: string | null;
   } = {}
 ): Promise<AlertsPage> {
   const { spaceId, orgId, limit = 10, offset = 0, qualification } = options;
 
-  let url = '';
-  if (spaceId)     url = `${API}/videos/space/${spaceId}/`;
-  else if (orgId)  url = `${API}/videos/organisation/${orgId}/`;
-  else             url = `${API}/videos/all/`;
+  let path = '';
+  if (spaceId)     path = `/videos/space/${spaceId}/`;
+  else if (orgId)  path = `/videos/organisation/${orgId}/`;
+  else             path = `/videos/all/`;
 
-  const params = new URLSearchParams({
+  const params: Record<string, string> = {
     limit:  String(limit),
     offset: String(offset),
-  });
-  // Filtre par qualification (envoyé seulement si défini)
+  };
   if (qualification !== undefined && qualification !== null) {
-    params.set('qualification', qualification);
+    params.qualification = qualification;
   }
 
-  const res = await fetch(`${url}?${params}`, { headers: headers() });
-  if (!res.ok) throw new Error('Erreur chargement alertes');
-  const data = await res.json();
+  // CORRECTIF : authAxios envoie les cookies HttpOnly automatiquement
+  // (withCredentials: true) et gère le refresh sur 401.
+  // Plus besoin de header Authorization manuel.
+  const res = await authAxios.get<any>(path, { params });
+  const data = res.data;
 
   const items: SecurityAlert[] = (Array.isArray(data) ? data : (data.results ?? [])).map(mapVideo);
   return {
@@ -94,14 +98,16 @@ export async function fetchAlerts(
 
 // ── Fetch une alerte par id ────────────────────────────────────
 export async function fetchAlertById(id: string): Promise<SecurityAlert> {
-  const res = await fetch(`${API}/videos/${id}/`, { headers: headers() });
-  if (!res.ok) {
+  try {
+    const res = await authAxios.get<any>(`/videos/${id}/`);
+    return mapVideo(res.data);
+  } catch {
+    // Fallback : cherche dans la liste complète
     const page = await fetchAlerts();
     const found = page.results.find(a => a.id === id);
     if (!found) throw new Error('Alerte introuvable');
     return found;
   }
-  return mapVideo(await res.json());
 }
 
 // ── Qualifier une alerte ───────────────────────────────────────
@@ -122,19 +128,13 @@ export async function qualifyAlert(id: string, status: AlertStatus): Promise<Sec
 
   const payload = payloadMap[status] ?? { status: 'PENDING' };
 
-  const res = await fetch(`${API}/videos/${id}/qualify/`, {
-    method: 'PATCH',
-    headers: headers(),
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error('Erreur qualification');
-  const data = await res.json();
+  const res = await authAxios.patch<any>(`/videos/${id}/qualify/`, payload);
+  const data = res.data;
   return mapVideo(data.alert ?? data);
 }
 
 // ── Fetch les espaces disponibles ──────────────────────────────
 export async function fetchSpaces() {
-  const res = await fetch(`${API}/videos/spaces/`, { headers: headers() });
-  if (!res.ok) throw new Error('Erreur chargement spaces');
-  return res.json();
+  const res = await authAxios.get<any>('/videos/spaces/');
+  return res.data;
 }

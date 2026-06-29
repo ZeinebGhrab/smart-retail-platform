@@ -28,7 +28,5 @@ class CookieJWTAuthentication(JWTAuthentication):
         if raw_token is None:
             return None
 
-        validated = self.get_validated_token(
-            self.get_raw_token(f"Bearer {raw_token}".encode())
-        )
+        validated = self.get_validated_token(raw_token.encode())
         return self.get_user(validated), validated

@@ -4,15 +4,16 @@
 
 ## `Login.tsx` + `Auth.css`
 
-Écran de connexion (e-mail + mot de passe), avec case « se souvenir de moi » (persistance `localStorage` vs `sessionStorage`, voir `../../services/auth.ts`).
+Écran de connexion (e-mail + mot de passe). Inclut aussi le flux complet **mot de passe oublié** en 4 étapes locales (`ForgotStep`) gérées dans une modale, sans changer de route :
 
-Inclut aussi le flux complet **mot de passe oublié** en 4 étapes locales (`ForgotStep`) gérées dans une modale, sans changer de route :
 1. `email` — saisie de l'adresse, appelle `POST /api/auth/password-reset/request/`
 2. `otp` — saisie du code à 6 chiffres reçu par e-mail, appelle `.../verify/`
 3. `newpw` — nouveau mot de passe + confirmation, appelle `.../confirm/`
 4. `done` — confirmation, retour à l'écran de connexion
 
 Appelle aussi `useFirebaseMessaging()` au montage (enregistrement du token push après connexion).
+
+> **Correctif sprint 2** — La case « se souvenir de moi » et toute logique de persistance `localStorage`/`sessionStorage` ont été supprimées. Les tokens ne sont plus stockés côté client : ils voyagent exclusivement dans des **cookies HttpOnly** posés et gérés par le backend. Le frontend ne conserve en mémoire que le profil utilisateur (non-sensible), réinitialisé par `bootstrapAuth()` au démarrage.
 
 ## `Register.tsx` (partage `Auth.css`)
 
