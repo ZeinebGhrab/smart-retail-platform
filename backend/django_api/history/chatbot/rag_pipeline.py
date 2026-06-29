@@ -234,19 +234,49 @@ def _build_csv_context(question: str) -> str:
         recent = sorted(df["date"].unique())[-n:]
         sub    = df[df["date"].isin(recent)]
         daily  = sub.groupby("date")["Visits"].sum()
-        lines.append(f"\nHistorique des {len(recent)} derniers jours (présente le nombre de visiteurs par jour) :")
-        for d, v in daily.items():
-            lines.append(f"  {d} : {int(v)} visiteurs")
-        lines.append(f"  Moyenne journalière : {int(daily.mean())} visiteurs/jour")
+        if daily.empty:
+            # Aucune donnée pour la période demandée : on le dit explicitement
+            # plutôt que de laisser le LLM sans contexte (il inventerait des chiffres).
+            lines.append("[PERIODE_INCONNUE] Aucune donnée disponible pour cette période.")
+        else:
+            # FIX D — Ne plus mentionner le nombre de jours ("7 derniers jours") sur la
+            # même ligne que la liste de chiffres. Avec un petit modèle (Llama 3.2 3B),
+            # ce "7" était parfois recopié comme une 8e valeur de la série
+            # (ex: "3399, 3414, 4026, 6193, 2520, 2030, 7." — observé en éval rag_eval).
+            lines.append("\nHistorique journalier (visiteurs par jour, du plus ancien au plus récent) :")
+            for d, v in daily.items():
+                lines.append(f"  - {d} : {int(v)} visiteurs")
+            lines.append(f"  (Total sur {len(recent)} jours, moyenne : {int(daily.mean())} visiteurs/jour)")
 
     # FIX B — Ne pas injecter le résumé global si :
     #   - une date spécifique a été demandée (même sans résultat → [DATE_INCONNUE])
-    #   - pour éviter que le LLM extraie un chiffre du résumé quand la date est inconnue
-    date_was_requested = bool(date)
-    date_unknown = any("[DATE_INCONNUE]" in l for l in lines)
+    #   - une période/historique a été demandée mais introuvable → [PERIODE_INCONNUE]
+    #   - pour éviter que le LLM extraie un chiffre du résumé alors que la vraie
+    #     réponse à la question posée est "je n'ai pas cette information"
+    date_was_requested   = bool(date)
+    date_unknown         = any("[DATE_INCONNUE]" in l for l in lines)
+    period_was_requested = any(k in q for k in ["historique", "derniers", "semaine", "mois", "évolution", "tendance"])
+    period_unknown       = any("[PERIODE_INCONNUE]" in l for l in lines)
 
-    if (not lines or any(k in q for k in ["résumé", "bilan", "total", "global"])) \
-            and not (date_was_requested and date_unknown):
+    # FIX E — Le fallback "résumé global quand lines est vide" ne doit se
+    # déclencher QUE si la question porte vraiment sur les données visiteurs
+    # (réutilise _is_pure_data_query, qui sait déjà distinguer une vraie
+    # question data d'une question FAQ contenant incidemment le mot "visiteurs",
+    # ex: "limites du modèle de prévision de visiteurs" ou "flux horaire des
+    # visiteurs" → ce sont des questions KB, pas des demandes de chiffres CSV).
+    # Sans cette garde, ces questions recevaient quand même le résumé global du
+    # CSV en plus du bon doc KB — ce bruit hors-sujet faisait dérailler le LLM
+    # vers "Je n'ai pas cette information" (régression éval : eval-007 Faith=0.00).
+    mentions_data_topic = _is_pure_data_query(question) or any(
+        k in q for k in ["résumé", "bilan", "total", "global"]
+    )
+
+    blocked_by_unknown = (date_was_requested and date_unknown) or (period_was_requested and period_unknown)
+
+    if not blocked_by_unknown and (
+        (not lines and mentions_data_topic)
+        or (lines and any(k in q for k in ["résumé", "bilan", "total", "global"]))
+    ):
         all_dates = sorted(df["date"].unique())
         lines.append(f"\nRésumé global :")
         lines.append(f"  Total visites : {int(df['Visits'].sum())}")
@@ -258,7 +288,7 @@ def _build_csv_context(question: str) -> str:
         for a, v in df.groupby("age")["Visits"].sum().items():
             lines.append(f"    {a} : {int(v)}")
 
-    return "\n".join(lines) if lines else "Données non disponibles."
+    return "\n".join(lines) if lines else ""
 
 
 # ── 2. RETRIEVAL KB — hybrid BM25 + embeddings nomic-embed-text ──
@@ -806,7 +836,7 @@ Tu es l'assistant analytique d'Anavid Store 360.
 RÈGLES — RESPECTER IMPÉRATIVEMENT :
 1. Réponds UNIQUEMENT en français, de façon concise et directe.
 2. Utilise UNIQUEMENT les chiffres et faits présents dans le CONTEXTE ci-dessous.
-3. Si une information est absente du CONTEXTE, réponds : "Je n'ai pas cette information dans les données disponibles." Sans ajouter aucun chiffre ni estimation.
+3. Si une information est absente du CONTEXTE, ou si le CONTEXTE contient "[DATE_INCONNUE]" ou "[PERIODE_INCONNUE]", réponds EXACTEMENT : "Je n'ai pas cette information dans les données disponibles." Sans ajouter aucun chiffre ni estimation.
 4. Commence directement par la réponse avec 1 emoji pertinent. Sans titre, sans introduction, sans répéter la question.
 5. Cite la source : "selon les données CSV..." ou "d'après la base de connaissance...".
 6. Quand des prévisions ML sont disponibles, précise qu'il s'agit d'estimations.
@@ -818,9 +848,26 @@ def _build_prompt(question: str, csv_ctx: str, kb_ctx: str, history: str = "", m
     history_block = f"=== HISTORIQUE DE LA CONVERSATION ===\n{history}\n\n" if history else ""
     kb_block  = f"=== BASE DE CONNAISSANCE (FAQ) — utilise UNIQUEMENT ce passage ===\n{kb_ctx}\n\n" if kb_ctx else ""
     ml_block  = f"{ml_ctx}\n\n" if ml_ctx else ""
-    csv_block = f"=== DONNÉES VISITEURS HISTORIQUES (CSV) ===\n{csv_ctx}\n\n" if csv_ctx and csv_ctx != "Données non disponibles." else ""
+    csv_block = f"=== DONNÉES VISITEURS HISTORIQUES (CSV) ===\n{csv_ctx}\n\n" if csv_ctx else ""
+
+    # FIX D (ciblé) — La consigne "n'écris pas une liste de chiffres nue, associe
+    # chaque chiffre à sa date" n'est utile QUE quand le contexte contient une
+    # vraie série chronologique ("Historique journalier..."). Injecter cette
+    # règle en permanence (même pour des questions KB simples comme "Combien
+    # de caméras ?") perturbait le petit modèle Llama 3.2 3B, qui tronquait
+    # alors sa réponse (régression éval : eval-004 "📍 2..." Faith=0.00).
+    extra_rule = ""
+    if "Historique journalier" in csv_ctx:
+        extra_rule = (
+            "\nRÈGLE SUPPLÉMENTAIRE : le CONTEXTE ci-dessous contient une série de "
+            "chiffres datés. N'écris JAMAIS une réponse composée uniquement de "
+            "chiffres séparés par des virgules (ex: \"3399, 3414, 4026...\"). "
+            "Associe chaque chiffre à sa date (ex: \"le 2026-06-22 : 3399 visiteurs\"). "
+            "N'invente jamais de chiffre supplémentaire en fin de liste.\n"
+        )
+
     return (
-        f"{_SYSTEM}\n\n"
+        f"{_SYSTEM}\n{extra_rule}\n"
         f"{ml_block}"
         f"{csv_block}"
         f"{kb_block}"
@@ -861,21 +908,80 @@ def _call_ollama(prompt: str, _retry: bool = True) -> str:
     resp.raise_for_status()
     answer = resp.json().get("response", "").strip()
 
-    # Détection de troncature : pas de ponctuation finale → retry avec plus de tokens
-    if _retry and answer and answer[-1] not in ".!?*_}`":
+    # Détection de troncature : pas de ponctuation finale → retry avec plus de tokens.
+    # FIX G — Une réponse terminée par "..." (points de suspension, ex: "📍 2...")
+    # se terminait par un "." et passait à tort pour "complète" : le check
+    # answer[-1] in ".!?..." ne distinguait pas un vrai point final d'une ellipse
+    # de troncature. On exclut donc explicitement les fins en "..." du critère
+    # de "réponse complète" (régression éval : eval-004 "📍 2..." jamais retentée).
+    #
+    # FIX H — Le retry doit avoir une vraie chance de produire une réponse
+    # différente. Avec seed=42 et temperature=0.0 figés, relancer EXACTEMENT
+    # le même prompt renvoie la même réponse tronquée (le modèle choisit
+    # lui-même de s'arrêter, num_predict plus haut n'y change rien). On change
+    # donc la seed et on ajoute une instruction explicite de développer.
+    # FIX J — Une réponse qui ne contient QUE la formule de citation de source
+    # imposée par la règle 5 ("selon la base de connaissance", "d'après les
+    # données CSV"), sans développer le contenu réel derrière, est insuffisante
+    # même si elle est grammaticalement complète et dépasse 15 caractères
+    # (ex: "Non, selon la base de connaissance." — 35 caractères, vrai point
+    # final, mais aucune information utile transmise). On détecte ce pattern :
+    # la réponse, une fois la formule de citation retirée, ne laisse presque
+    # rien (régression éval : eval-011 Faith=0.00 Relev=0.00).
+    _citation_stub = re.sub(
+        r"(selon (la base de connaissance|les données csv)|"
+        r"d['’]après (la base de connaissance|les données csv))",
+        "",
+        answer.lower(),
+    )
+    _citation_stub = re.sub(r"[^\w]", "", _citation_stub)
+    is_citation_only = len(_citation_stub) < 20  # quasi rien d'autre que "non,"/"oui,"/emoji
+
+    is_ellipsis = answer.endswith("...")
+    is_too_short = len(answer) < 15  # ex: "📍 2..." → quasi aucune réponse réelle
+    if _retry and answer and (is_ellipsis or is_too_short or is_citation_only or answer[-1] not in ".!?*_}`"):
         try:
+            # FIX I/J — Instruction de retry plus directive et concrète, adaptée
+            # au type de problème détecté. Une formule vague ("sans la couper")
+            # ne corrige pas les vrais patterns observés : le modèle ne tronque
+            # pas par manque de tokens, il choisit délibérément de répondre par
+            # un chiffre nu (ex: "📊 2170") ou par la seule formule de citation
+            # de source (ex: "Non, selon la base de connaissance.") sans aller
+            # au fond du contenu. On donne un exemple concret adapté au cas.
+            if is_citation_only:
+                retry_hint = (
+                    "Une réponse qui se limite à citer la source sans expliquer "
+                    "le contenu réel n'est PAS acceptable. Développe le fait ou "
+                    "la règle en question (ex: \"Non, d'après la base de "
+                    "connaissance, toutes les données sont traitées localement "
+                    "et aucune n'est envoyée vers un service externe.\" et non "
+                    "\"Non, selon la base de connaissance.\")."
+                )
+            else:
+                retry_hint = (
+                    "Une réponse composée d'un seul chiffre ou nombre sans "
+                    "phrase n'est PAS acceptable. Rédige une phrase complète "
+                    "qui répond à la question avec le sujet et le contexte "
+                    "(ex: \"Le 2026-06-05, le magasin a enregistré 208 "
+                    "visiteurs.\" et non \"208\")."
+                )
+            retry_prompt = (
+                prompt
+                + f"\n\n[Ta réponse précédente était incomplète : \"{answer}\". "
+                  f"{retry_hint}]"
+            )
             longer = requests.post(
                 f"{OLLAMA_HOST}/api/generate",
                 json={
                     "model":  OLLAMA_MODEL,
-                    "prompt": prompt,
+                    "prompt": retry_prompt,
                     "stream": False,
                     "options": {
-                        "temperature": 0.0,
+                        "temperature": 0.2,
                         "top_p":       0.9,
                         "num_ctx":     4096,
                         "num_predict": 3072,
-                        "seed":        42,
+                        "seed":        43,
                     },
                 },
                 timeout=240,
@@ -1015,7 +1121,9 @@ def _extract_camera(text: str) -> str | None:
 
 
 def _extract_n_days(text: str) -> int | None:
-    m = re.search(r'(\d+)\s*(jours?|semaines?)', text.lower())
+    # Accepte "50 derniers jours" / "3 dernières semaines" : un ou deux mots
+    # (ex: "derniers", "dernières") peuvent s'intercaler entre le chiffre et l'unité.
+    m = re.search(r'(\d+)\s*(?:\w+\s+){0,2}?(jours?|semaines?)', text.lower())
     if m:
         n = int(m.group(1))
         return n * 7 if "semaine" in m.group(2) else n

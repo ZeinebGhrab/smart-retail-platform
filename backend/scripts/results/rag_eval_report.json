@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-29T00:00:32.478114",
+  "generated_at": "2026-06-29T00:57:46.403682",
   "config": {
     "k": 2,
     "model": "llama3.2:3b-instruct-q4_K_M",
@@ -13,21 +13,21 @@
       "recall@2": 0.75,
       "mrr": 0.75,
       "ndcg@2": 0.75,
-      "context_precision": 0.3333,
-      "context_recall": 0.555
+      "context_precision": 0.6667,
+      "context_recall": 0.5011
     },
     "generation": {
       "exact_match": 0.0,
-      "f1_score": 0.3113,
-      "bleu": 0.185,
-      "rouge_l_f1": 0.2744,
-      "faithfulness": 0.9614,
-      "answer_relevancy": 0.3926
+      "f1_score": 0.3494,
+      "bleu": 0.2026,
+      "rouge_l_f1": 0.2947,
+      "faithfulness": 0.7433,
+      "answer_relevancy": 0.4722
     },
-    "latency_ms_avg": 13885.3083
+    "latency_ms_avg": 14917.8417
   },
   "scoring": {
-    "score_100": 60.9,
+    "score_100": 55.8,
     "faithfulness_ok": true,
     "relevancy_ok": false,
     "context_recall_ok": false,
@@ -52,7 +52,7 @@
         "recall@2": 1.0,
         "mrr": 1.0,
         "ndcg@2": 1.0,
-        "context_precision": 0.5,
+        "context_precision": 1.0,
         "context_recall": 1.0
       },
       "generation_metrics": {
@@ -65,7 +65,7 @@
         "faithfulness": 1.0,
         "answer_relevancy": 0.2
       },
-      "latency_ms": 25666.7
+      "latency_ms": 13693.9
     },
     {
       "id": "eval-002",
@@ -73,7 +73,7 @@
       "category": "faq",
       "relevant_source": "kb",
       "ground_truth": "Le taux de conversion est le rapport entre le nombre d'acheteurs et le nombre total de visiteurs, exprimé en pourcentage.",
-      "answer": "📊 Le taux de conversion est calculé comme suit : (nombre de transactions / nombre de visiteurs) x 100.",
+      "answer": "📊 Le taux de conversion est calculé en divisant le nombre de transactions par le nombre de visiteurs et en multipliant par 100.",
       "retrieved_kb_ids": [
         "kb-002"
       ],
@@ -85,20 +85,20 @@
         "recall@2": 1.0,
         "mrr": 1.0,
         "ndcg@2": 1.0,
-        "context_precision": 0.5,
-        "context_recall": 0.3333
+        "context_precision": 0.0,
+        "context_recall": 0.2222
       },
       "generation_metrics": {
         "exact_match": 0.0,
-        "f1_score": 0.4865,
-        "bleu": 0.3168,
-        "rouge_l_precision": 0.5625,
-        "rouge_l_recall": 0.4286,
-        "rouge_l_f1": 0.4865,
-        "faithfulness": 0.8571,
+        "f1_score": 0.6047,
+        "bleu": 0.4438,
+        "rouge_l_precision": 0.5455,
+        "rouge_l_recall": 0.5714,
+        "rouge_l_f1": 0.5581,
+        "faithfulness": 0.6667,
         "answer_relevancy": 0.75
       },
-      "latency_ms": 15886.3
+      "latency_ms": 11363.8
     },
     {
       "id": "eval-003",
@@ -106,7 +106,7 @@
       "category": "faq",
       "relevant_source": "kb",
       "ground_truth": "Le panier moyen est le chiffre d'affaires total divisé par le nombre de transactions réalisées sur une période donnée.",
-      "answer": "🛍️ Le panier moyen est un indicateur de performance commerciale qui correspond au chiffre d'affaires total divisé par le nombre de transactions sur une période donnée.",
+      "answer": "📊 Le panier moyen est un indicateur qui représente le chiffre d'affaires total divisé par le nombre de transactions sur une période donnée. Il s'agit d'un indicateur clé pour évaluer la performance commerciale et peut être utilisé en complément du nombre de visiteurs.",
       "retrieved_kb_ids": [
         "kb-003"
       ],
@@ -118,20 +118,20 @@
         "recall@2": 1.0,
         "mrr": 1.0,
         "ndcg@2": 1.0,
-        "context_precision": 0.5,
+        "context_precision": 1.0,
         "context_recall": 0.9091
       },
       "generation_metrics": {
         "exact_match": 0.0,
-        "f1_score": 0.7826,
-        "bleu": 0.6445,
-        "rouge_l_precision": 0.6923,
-        "rouge_l_recall": 0.9,
-        "rouge_l_f1": 0.7826,
-        "faithfulness": 1.0,
+        "f1_score": 0.5846,
+        "bleu": 0.3918,
+        "rouge_l_precision": 0.4222,
+        "rouge_l_recall": 0.95,
+        "rouge_l_f1": 0.5846,
+        "faithfulness": 0.85,
         "answer_relevancy": 1.0
       },
-      "latency_ms": 14995.4
+      "latency_ms": 12733.0
     },
     {
       "id": "eval-004",
@@ -139,7 +139,7 @@
       "category": "faq",
       "relevant_source": "kb",
       "ground_truth": "Deux caméras sont installées : Porte_nord et Porte_sud, aux entrées principales du magasin.",
-      "answer": "📸 2 caméras de comptage sont installées : une à Porte_sud (entrée principale, côté parking) et une à Porte_nord (entrée secondaire, côté galerie).",
+      "answer": "📍 2",
       "retrieved_kb_ids": [
         "kb-004"
       ],
@@ -151,20 +151,20 @@
         "recall@2": 1.0,
         "mrr": 1.0,
         "ndcg@2": 1.0,
-        "context_precision": 0.5,
+        "context_precision": 0.0,
         "context_recall": 0.4286
       },
       "generation_metrics": {
         "exact_match": 0.0,
-        "f1_score": 0.3636,
-        "bleu": 0.1195,
-        "rouge_l_precision": 0.1905,
-        "rouge_l_recall": 0.3333,
-        "rouge_l_f1": 0.2424,
-        "faithfulness": 1.0,
-        "answer_relevancy": 0.8
+        "f1_score": 0.0,
+        "bleu": 0.0,
+        "rouge_l_precision": 0.0,
+        "rouge_l_recall": 0.0,
+        "rouge_l_f1": 0.0,
+        "faithfulness": 0.0,
+        "answer_relevancy": 0.0
       },
-      "latency_ms": 15458.1
+      "latency_ms": 12582.5
     },
     {
       "id": "eval-005",
@@ -172,7 +172,7 @@
       "category": "faq",
       "relevant_source": "kb",
       "ground_truth": "En cas de stock critique, une alerte est envoyée au responsable logistique pour réapprovisionner dans les 24 heures.",
-      "answer": "🚨 D'après la base de connaissance, la procédure en cas d'alerte de stock critique consiste à valider une commande de réapprovisionnement dans les 24 heures suivant l'alerte.",
+      "answer": "🚨 La procédure en cas d'alerte de stock critique consiste à valider une commande de réapprovisionnement dans les 24 heures suivant l'alerte, selon le responsable de rayon.",
       "retrieved_kb_ids": [
         "kb-005"
       ],
@@ -184,20 +184,20 @@
         "recall@2": 1.0,
         "mrr": 1.0,
         "ndcg@2": 1.0,
-        "context_precision": 0.5,
+        "context_precision": 1.0,
         "context_recall": 0.375
       },
       "generation_metrics": {
         "exact_match": 0.0,
-        "f1_score": 0.4681,
-        "bleu": 0.2851,
-        "rouge_l_precision": 0.3448,
+        "f1_score": 0.5217,
+        "bleu": 0.3086,
+        "rouge_l_precision": 0.3571,
         "rouge_l_recall": 0.5556,
-        "rouge_l_f1": 0.4255,
-        "faithfulness": 0.8462,
+        "rouge_l_f1": 0.4348,
+        "faithfulness": 0.9286,
         "answer_relevancy": 0.75
       },
-      "latency_ms": 15029.8
+      "latency_ms": 12511.6
     },
     {
       "id": "eval-006",
@@ -205,7 +205,7 @@
       "category": "faq",
       "relevant_source": "kb",
       "ground_truth": "Les pics de visites surviennent généralement entre 11h-13h et 16h-18h. Un flux faible le matin peut indiquer une affluence en après-midi.",
-      "answer": "🕰️ Le flux horaire des visiteurs représente le nombre de passages détectés par heure, toutes caméras confondues ou par caméra. Les heures de pointe typiques se situent en matinée (08h-10h) et en fin d'après-midi (16h-19h). Une chute brutale peut indiquer une fermeture exceptionnelle, un incident ou un jour férié.",
+      "answer": "📈 Le flux horaire des visiteurs représente le nombre de passages détectés par heure, toutes caméras confondues ou par caméra. Les heures de pointe typiques se situent en matinée (08h-10h) et en fin d'après-midi (16h-19h).",
       "retrieved_kb_ids": [
         "kb-007",
         "kb-002"
@@ -218,20 +218,20 @@
         "recall@2": 1.0,
         "mrr": 1.0,
         "ndcg@2": 1.0,
-        "context_precision": 0.5,
-        "context_recall": 0.3636
+        "context_precision": 1.0,
+        "context_recall": 0.2727
       },
       "generation_metrics": {
         "exact_match": 0.0,
-        "f1_score": 0.3421,
-        "bleu": 0.1213,
-        "rouge_l_precision": 0.1346,
-        "rouge_l_recall": 0.2917,
-        "rouge_l_f1": 0.1842,
+        "f1_score": 0.2903,
+        "bleu": 0.08,
+        "rouge_l_precision": 0.1579,
+        "rouge_l_recall": 0.25,
+        "rouge_l_f1": 0.1935,
         "faithfulness": 1.0,
         "answer_relevancy": 0.6
       },
-      "latency_ms": 19219.8
+      "latency_ms": 15617.1
     },
     {
       "id": "eval-007",
@@ -251,7 +251,7 @@
         "recall@2": 1.0,
         "mrr": 1.0,
         "ndcg@2": 1.0,
-        "context_precision": 0.5,
+        "context_precision": 1.0,
         "context_recall": 0.1333
       },
       "generation_metrics": {
@@ -264,7 +264,7 @@
         "faithfulness": 1.0,
         "answer_relevancy": 0.5
       },
-      "latency_ms": 17163.5
+      "latency_ms": 14477.6
     },
     {
       "id": "eval-008",
@@ -272,7 +272,7 @@
       "category": "data",
       "relevant_source": "csv",
       "ground_truth": "Les données CSV du 2026-05-01 indiquent le total des visites enregistrées ce jour-là.",
-      "answer": "📈 2170",
+      "answer": "📊 2170 visiteurs ont eu accès à l'Anavid Store le 2026-05-01. Selon les données CSV, ce nombre est basé sur les enregistrements des caméras et des systèmes de suivi des visiteurs. D'après la base de connaissance, ces données sont considérées comme fiables et reflètent l'état réel du trafic le jour de la visite.",
       "retrieved_kb_ids": [],
       "relevant_kb_ids": [],
       "retriever_metrics": {
@@ -285,15 +285,15 @@
       },
       "generation_metrics": {
         "exact_match": 0.0,
-        "f1_score": 0.0,
-        "bleu": 0.0,
-        "rouge_l_precision": 0.0,
-        "rouge_l_recall": 0.0,
-        "rouge_l_f1": 0.0,
-        "faithfulness": 1.0,
-        "answer_relevancy": 0.0
+        "f1_score": 0.3014,
+        "bleu": 0.1174,
+        "rouge_l_precision": 0.1053,
+        "rouge_l_recall": 0.375,
+        "rouge_l_f1": 0.1644,
+        "faithfulness": 0.3182,
+        "answer_relevancy": 0.6667
       },
-      "latency_ms": 4551.0
+      "latency_ms": 11420.5
     },
     {
       "id": "eval-009",
@@ -301,7 +301,7 @@
       "category": "data",
       "relevant_source": "csv",
       "ground_truth": "Le résumé global inclut le total des visites, la répartition par genre et la période couverte.",
-      "answer": "📊 744150",
+      "answer": "📊 744150. Selon les données CSV, le total des visites est de 744150 au cours de la période couverte du 1er juin 2025 au 30 mai 2026.",
       "retrieved_kb_ids": [],
       "relevant_kb_ids": [],
       "retriever_metrics": {
@@ -314,15 +314,15 @@
       },
       "generation_metrics": {
         "exact_match": 0.0,
-        "f1_score": 0.0,
-        "bleu": 0.0,
-        "rouge_l_precision": 0.0,
-        "rouge_l_recall": 0.0,
-        "rouge_l_f1": 0.0,
-        "faithfulness": 1.0,
-        "answer_relevancy": 0.0
+        "f1_score": 0.3333,
+        "bleu": 0.232,
+        "rouge_l_precision": 0.2692,
+        "rouge_l_recall": 0.4375,
+        "rouge_l_f1": 0.3333,
+        "faithfulness": 0.8182,
+        "answer_relevancy": 0.2
       },
-      "latency_ms": 3650.8
+      "latency_ms": 7330.7
     },
     {
       "id": "eval-010",
@@ -330,7 +330,7 @@
       "category": "hybrid",
       "relevant_source": "both",
       "ground_truth": "Les données CSV d'hier pour la caméra Porte_nord indiquent le nombre de visites enregistrées.",
-      "answer": "📈 1639",
+      "answer": "📈 1639 visites ont été enregistrées par la caméra Porte_nord hier. Selon les données CSV, ce nombre correspond à la totalité des visites reçues par cette caméra, car il n'y a aucune indication de différence entre les deux caméras. D'après la base de connaissance, le magasin dispose de deux caméras de comptage de visiteurs : Porte_sud et Porte_nord.",
       "retrieved_kb_ids": [
         "kb-004"
       ],
@@ -342,20 +342,20 @@
         "recall@2": 1.0,
         "mrr": 1.0,
         "ndcg@2": 1.0,
-        "context_precision": 0.0,
+        "context_precision": 1.0,
         "context_recall": 0.625
       },
       "generation_metrics": {
         "exact_match": 0.0,
-        "f1_score": 0.0,
-        "bleu": 0.0,
-        "rouge_l_precision": 0.0,
-        "rouge_l_recall": 0.0,
-        "rouge_l_f1": 0.0,
-        "faithfulness": 1.0,
-        "answer_relevancy": 0.0
+        "f1_score": 0.3562,
+        "bleu": 0.1254,
+        "rouge_l_precision": 0.1207,
+        "rouge_l_recall": 0.4667,
+        "rouge_l_f1": 0.1918,
+        "faithfulness": 0.7,
+        "answer_relevancy": 0.6667
       },
-      "latency_ms": 14560.4
+      "latency_ms": 22087.2
     },
     {
       "id": "eval-011",
@@ -363,7 +363,7 @@
       "category": "faq",
       "relevant_source": "kb",
       "ground_truth": "Non, la politique de confidentialité interdit le partage des données de comptage avec des tiers sans consentement explicite.",
-      "answer": "🚫 Non, selon la base de connaissance, Anavid Store 360 traite toutes les données de ventes, de fréquentation et de personnel localement via le LLM Ollama embarqué, sans envoyer de données vers un service cloud externe.",
+      "answer": "🚫 Non, d'après la base de connaissance, toutes les données de ventes, de fréquentation et de personnel sont traitées localement via le LLM Ollama embarqué (Qwen 2.5 7B ou Llama 3.2 3B selon la VRAM disponible). Aucune donnée n'est envoyée vers un service cloud externe, conformément aux exigences de confidentialité d'Anavid Store 360.\n\nSelon les données CSV, Anavid Store 360 a mis en place une politique de confidentialité qui garantit le traitement local des données.",
       "retrieved_kb_ids": [
         "kb-006"
       ],
@@ -375,20 +375,20 @@
         "recall@2": 1.0,
         "mrr": 1.0,
         "ndcg@2": 1.0,
-        "context_precision": 0.5,
+        "context_precision": 1.0,
         "context_recall": 0.3333
       },
       "generation_metrics": {
         "exact_match": 0.0,
-        "f1_score": 0.2642,
-        "bleu": 0.0767,
-        "rouge_l_precision": 0.1714,
-        "rouge_l_recall": 0.3333,
-        "rouge_l_f1": 0.2264,
-        "faithfulness": 0.8333,
-        "answer_relevancy": 0.1111
+        "f1_score": 0.1856,
+        "bleu": 0.0764,
+        "rouge_l_precision": 0.1013,
+        "rouge_l_recall": 0.4444,
+        "rouge_l_f1": 0.1649,
+        "faithfulness": 0.8919,
+        "answer_relevancy": 0.3333
       },
-      "latency_ms": 16057.6
+      "latency_ms": 19824.7
     },
     {
       "id": "eval-012",
@@ -396,7 +396,7 @@
       "category": "data",
       "relevant_source": "csv",
       "ground_truth": "L'historique des 7 derniers jours présente le nombre de visiteurs par jour et la moyenne journalière sur la période.",
-      "answer": "📊 3399, 3414, 4026, 6193, 2520, 2030, 7.",
+      "answer": "📈 Le 2026-05-23 au 2026-05-30 :\n\n- Le 2026-05-23, le magasin a enregistré 3399 visiteurs.\n- Le 2026-05-24, le magasin a enregistré 3414 visiteurs.\n- Le 2026-05-25, le magasin a enregistré 4026 visiteurs.\n- Le 2026-05-26, le magasin a enregistré 6193 visiteurs.\n- Le 2026-05-27, le magasin a enregistré 2520 visiteurs.\n- Le 2026-05-29, le magasin a enregistré 2030 visiteurs.\n- Le 2026-05-30, le magasin a enregistré 7 visiteurs.",
       "retrieved_kb_ids": [],
       "relevant_kb_ids": [],
       "retriever_metrics": {
@@ -404,20 +404,20 @@
         "recall@2": 0.0,
         "mrr": 0.0,
         "ndcg@2": 0.0,
-        "context_precision": 0.0,
-        "context_recall": 0.7778
+        "context_precision": 1.0,
+        "context_recall": 0.3333
       },
       "generation_metrics": {
         "exact_match": 0.0,
-        "f1_score": 0.0741,
+        "f1_score": 0.0612,
         "bleu": 0.0,
-        "rouge_l_precision": 0.1429,
-        "rouge_l_recall": 0.05,
-        "rouge_l_f1": 0.0741,
-        "faithfulness": 1.0,
+        "rouge_l_precision": 0.0256,
+        "rouge_l_recall": 0.1,
+        "rouge_l_f1": 0.0408,
+        "faithfulness": 0.7455,
         "answer_relevancy": 0.0
       },
-      "latency_ms": 4384.3
+      "latency_ms": 25371.5
     }
   ]
 }
