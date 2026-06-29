@@ -47,7 +47,7 @@ STATUS_PARAM = OpenApiParameter(
 QUALIFICATION_PARAM = OpenApiParameter(
     "qualification",
     str,
-    description="Filtrer par qualification: vol, suspicious, false_alarm",
+    description="Filtrer par qualification: vol, suspicious, false_alarm, ou 'null' pour non qualifiées",
     required=False,
 )
 
@@ -112,7 +112,7 @@ def videos_by_space(request, space_id):
     
     Paramètres optionnels :
     - status : Filtrer par statut
-    - qualification : Filtrer par qualification
+    - qualification : Filtrer par qualification (vol, suspicious, false_alarm, ou 'null' pour non qualifiées)
     - limit : Nombre max de résultats
     - offset : Décalage pour pagination
     """
@@ -127,11 +127,16 @@ def videos_by_space(request, space_id):
     if status_filter:
         alerts = alerts.filter(status=status_filter)
     
+    # FIX: Logique de filtrage améliorée et clarifiée
     qualification = request.query_params.get('qualification')
-    if qualification and qualification != 'null':
-        alerts = alerts.filter(qualification=qualification)
-    elif qualification == 'null':
-        alerts = alerts.filter(qualification__isnull=True)
+    if qualification is not None:
+        if qualification == 'null':
+            # Afficher les alertes non qualifiées
+            alerts = alerts.filter(qualification__isnull=True)
+        else:
+            # Afficher les alertes avec la qualification spécifiée (vol, suspicious, false_alarm)
+            alerts = alerts.filter(qualification=qualification)
+    # Si qualification est None, pas de filtre appliqué (affiche tous les enregistrements)
     
     # Pagination
     limit, offset = get_pagination_params(request.query_params)
@@ -157,22 +162,33 @@ def videos_by_organization(request, organization_id):
     """
     GET /api/video-alerts/organization/<organization_id>/
     Retourne les alertes vidéo approuvées pour tous les espaces d'une organisation.
+    
+    Paramètres optionnels :
+    - status : Filtrer par statut
+    - qualification : Filtrer par qualification (vol, suspicious, false_alarm, ou 'null' pour non qualifiées)
+    - limit : Nombre max de résultats
+    - offset : Décalage pour pagination
     """
     alerts = VideoTheftAlert.objects.filter(
         space__organization_id=organization_id,
         status='APPROVED'
     ).order_by('-recording_date')
     
-    # Filtres
+    # Appliquer filtres
     status_filter = request.query_params.get('status')
     if status_filter:
         alerts = alerts.filter(status=status_filter)
     
+    # FIX: Logique de filtrage améliorée et clarifiée
     qualification = request.query_params.get('qualification')
-    if qualification and qualification != 'null':
-        alerts = alerts.filter(qualification=qualification)
-    elif qualification == 'null':
-        alerts = alerts.filter(qualification__isnull=True)
+    if qualification is not None:
+        if qualification == 'null':
+            # Afficher les alertes non qualifiées
+            alerts = alerts.filter(qualification__isnull=True)
+        else:
+            # Afficher les alertes avec la qualification spécifiée
+            alerts = alerts.filter(qualification=qualification)
+    # Si qualification est None, pas de filtre appliqué
     
     # Pagination
     limit, offset = get_pagination_params(request.query_params)
@@ -198,17 +214,26 @@ def list_all_video_alerts(request):
     """
     GET /api/video-alerts/all/
     Retourne toutes les alertes vidéo approuvées de tous les espaces.
+    
+    Paramètres optionnels :
+    - qualification : Filtrer par qualification (vol, suspicious, false_alarm, ou 'null' pour non qualifiées)
+    - limit : Nombre max de résultats
+    - offset : Décalage pour pagination
     """
     alerts = VideoTheftAlert.objects.filter(
         status='APPROVED'
     ).order_by('-recording_date')
     
-    # Filtre par qualification
+    # FIX: Logique de filtrage améliorée et clarifiée
     qualification = request.query_params.get('qualification')
-    if qualification and qualification != 'null':
-        alerts = alerts.filter(qualification=qualification)
-    elif qualification == 'null':
-        alerts = alerts.filter(qualification__isnull=True)
+    if qualification is not None:
+        if qualification == 'null':
+            # Afficher les alertes non qualifiées
+            alerts = alerts.filter(qualification__isnull=True)
+        else:
+            # Afficher les alertes avec la qualification spécifiée
+            alerts = alerts.filter(qualification=qualification)
+    # Si qualification est None, pas de filtre appliqué
     
     # Pagination
     limit, offset = get_pagination_params(request.query_params)

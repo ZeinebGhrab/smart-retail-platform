@@ -24,7 +24,8 @@ urlpatterns = [
     path('videos/all/',                                va_views.list_all_video_alerts,  name='videos-all'),
     path('videos/spaces/',                             va_views.list_alert_spaces,      name='videos-spaces'),
     path('videos/space/<int:space_id>/',               va_views.videos_by_space,        name='videos-by-space'),
-    path('videos/organisation/<int:organisation_id>/', va_views.videos_by_organization, name='videos-by-org'),
+
+    path('videos/organisation/<int:organization_id>/', va_views.videos_by_organization, name='videos-by-org'),
     path('videos/<int:video_id>/qualify/',             va_views.qualify_video_alert,    name='videos-qualify'),
     path('videos/<int:video_id>/',                     va_views.get_video_alert_detail, name='videos-detail'),
 
