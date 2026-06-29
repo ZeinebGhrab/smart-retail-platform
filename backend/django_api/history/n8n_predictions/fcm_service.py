@@ -193,12 +193,21 @@ class FCMService:
                     logger.debug(f"Notification envoyée au token {token[:20]}...")
                 else:
                     error = response.json()
+                    error_message = error.get("error", {}).get("message", "Unknown error")
+                    error_status = error.get("error", {}).get("status", "")
                     error_list.append({
                         "token": token[:20] + "...",
                         "status": response.status_code,
-                        "error": error.get("error", {}).get("message", "Unknown error")
+                        "error": error_message,
                     })
                     logger.warning(f"Erreur d'envoi pour {token[:20]}... : {error}")
+
+                    # Le token est mort côté FCM (app désinstallée, cache navigateur
+                    # vidé, token expiré) — il faut le désactiver pour ne plus
+                    # réessayer indéfiniment à chaque exécution du cron n8n.
+                    if response.status_code == 404 or error_status in ("NOT_FOUND", "INVALID_ARGUMENT"):
+                        FCMToken.objects.filter(token=token).update(is_active=False)
+                        logger.info(f"Token FCM désactivé (invalide) : {token[:20]}...")
             except requests.RequestException as e:
                 error_list.append({
                     "token": token[:20] + "...",

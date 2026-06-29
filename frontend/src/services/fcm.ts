@@ -3,42 +3,31 @@
 // Service pour interagir avec les endpoints FCM du backend
 // ============================================================
 
-import axios from 'axios';
-import { getAccessToken } from './auth'; 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+// ce fichier utilisait axios brut + getAccessToken() (qui
+// renvoie toujours null depuis le passage à l'auth par cookie HttpOnly).
+// Sans withCredentials: true, le cookie de session n'était jamais
+// envoyé → /fcm-token/ et /send-fcm/ étaient appelés sans authentification.
+// authAxios (withCredentials: true + refresh auto sur 401) est la bonne
+// instance à utiliser ici, comme partout ailleurs dans l'app.
+import authAxios from './authAxios';
 
-// export const saveFCMToken = async (token: string): Promise<void> => {
-//   try {
-//     const response = await axios.post(`${API_BASE_URL}/fcm-token/`, { token });
-//     console.log('Token FCM sauvegardé:', response.data);
-//   } catch (error) {
-//     console.error('Erreur lors de la sauvegarde du token FCM:', error);
-//     throw error;
-//   }
-// };
 export const saveFCMToken = async (token: string): Promise<void> => {
   try {
-    const accessToken = getAccessToken();
-    const response = await axios.post(
-      `${API_BASE_URL}/fcm-token/`,
-      { token },
-      {
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-      }
-    );
+    const response = await authAxios.post('/fcm-token/', { token });
     console.log('Token FCM sauvegardé:', response.data);
   } catch (error) {
     console.error('Erreur lors de la sauvegarde du token FCM:', error);
     throw error;
   }
 };
+
 export const sendFCMNotification = async (
   title: string,
   body: string,
   data?: Record<string, string>
 ): Promise<{ sent: number; errors: any[] }> => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/send-fcm/`, {
+    const response = await authAxios.post('/send-fcm/', {
       title,
       body,
       data: data || {},

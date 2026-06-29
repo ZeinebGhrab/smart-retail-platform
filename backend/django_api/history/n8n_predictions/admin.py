@@ -303,10 +303,15 @@ class PushNotificationLogAdmin(admin.ModelAdmin):
             return "—"
         rate = obj.success_rate
         color = 'green' if rate >= 90 else 'orange' if rate >= 50 else 'red'
+        # CORRECTIF : format_html n'applique pas de spécificateur de format
+        # numérique ({:.0f}) — il insère ses arguments tels quels avec
+        # échappement HTML. Le formatage doit se faire AVANT l'appel, avec
+        # une f-string ou str.format() classique sur un float/int normal.
+        rate_str = f"{rate:.0f}"
         return format_html(
-            '<span style="color: {}; font-weight: bold;">{:.0f}%</span>',
+            '<span style="color: {}; font-weight: bold;">{}%</span>',
             color,
-            rate
+            rate_str
         )
     success_rate_display.short_description = 'Succès'
     success_rate_display.admin_order_field = 'sent_count'

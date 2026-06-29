@@ -19,7 +19,7 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { initializeApp, getApps } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { saveFCMToken } from '../services/fcm';
-import { getAccessToken } from '../services/auth';
+import { isAuthenticated } from '../services/auth';
 const firebaseConfig = {
   apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain:        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -158,10 +158,16 @@ export const useFirebaseMessaging = () => {
     }
   };
 
-  // Auto-run au démarrage UNIQUEMENT si déjà connecté
+  // Auto-run au démarrage UNIQUEMENT si déjà connecté.
+  // CORRECTIF : getAccessToken() est un stub qui renvoie toujours null
+  // depuis le passage à l'auth par cookie HttpOnly (les tokens ne sont
+  // plus accessibles en JS). isAuthenticated() lit le profil utilisateur
+  // gardé en mémoire après bootstrapAuth() — c'est le bon indicateur ici.
+  // Attention : App.tsx attend bootstrapAuth() (donc isAuthenticated() à
+  // jour) avant son premier render utile, donc ce useEffect s'exécute
+  // bien après que la session ait été (re)validée au démarrage.
   useEffect(() => {
-    
-    if (getAccessToken()) {
+    if (isAuthenticated()) {
       initializeMessaging();
     }
   }, []);
