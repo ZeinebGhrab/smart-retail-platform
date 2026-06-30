@@ -55,7 +55,7 @@ class VideoTheftAlert(models.Model):
     STATUS_CHOICES = [
         ('PENDING', 'En attente'),
         ('APPROVED', 'Approuvé - Vol confirmé'),
-        ('REJECTED', 'Rejeté'),
+        ('REJECTED', 'Rejeté - Fausse alerte'),
     ]
 
     QUALIFICATION_CHOICES = [
