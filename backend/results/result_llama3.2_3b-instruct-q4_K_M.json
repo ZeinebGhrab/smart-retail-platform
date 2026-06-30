@@ -1,12 +1,12 @@
 {
   "model_id": "llama3.2:3b-instruct-q4_K_M",
   "label": "Llama 3.2 3B (q4_K_M)",
-  "timestamp": "2026-06-28T22:41:38.538483",
+  "timestamp": "2026-06-30T08:41:38.670746",
   "ttft_throughput": {
-    "ttft_avg": 0.078,
-    "ttft_min": 0.071,
-    "throughput_avg": 19.8,
-    "throughput_max": 20.3
+    "ttft_avg": 0.126,
+    "ttft_min": 0.072,
+    "throughput_avg": 20.0,
+    "throughput_max": 21.7
   },
   "tool_calling": {
     "total_queries": 50,
@@ -21,6 +21,11 @@
         "raw": "{\n  \"tool\": \"Conversion Rate Calculator\",\n  \"parameters\": {\n    \"metric\": \"conversion_rate\",\n    \"ti"
       },
       {
+        "id": 13,
+        "reason": "invalid_json",
+        "raw": "{\n  \"tool\": \"Average Basket Size Calculator\",\n  \"parameters\": {\n    \"metric\": \"mean\",\n    \"timeframe"
+      },
+      {
         "id": 14,
         "reason": "invalid_json",
         "raw": "{\n  \"tool\": \"Sales Comparison\",\n  \"parameters\": {\n    \"dateRange\": [\"2022-04-01\", \"2023-03-31\"],\n   "
@@ -31,43 +36,38 @@
         "raw": "{\n  \"tool\": \"Sales Promotion Analyzer\",\n  \"parameters\": {\n    \"promotion_id\": \"PROMO-20%\",\n    \"date"
       },
       {
-        "id": 24,
-        "reason": "invalid_json",
-        "raw": "{\n  \"tool\": \"Predictive Analytics\",\n  \"parameters\": {\n    \"date_range\": \"2024-04-01:2024-04-07\"\n  }"
-      },
-      {
         "id": 30,
         "reason": "invalid_json",
         "raw": "{\n  \"tool\": \"Product Discount Analysis\",\n  \"parameters\": {\n    \"category\": \"Vente\",\n    \"filter\": \"D"
       },
       {
-        "id": 35,
-        "reason": "invalid_json",
-        "raw": "{\n  \"tool\": \"DataLookup\",\n  \"parameters\": {\n    \"category\": \"Sport\",\n    \"metric\": \"average_restocki"
-      },
-      {
         "id": 41,
         "reason": "invalid_json",
         "raw": "{\n  \"tool\": \"Sales Report\",\n  \"parameters\": {\n    \"date\": \"2026-06-07T10:00:00\",\n    \"time_range\": \""
+      },
+      {
+        "id": 44,
+        "reason": "invalid_json",
+        "raw": "{\n  \"tool\": \"Mobile App Analytics\",\n  \"parameters\": {\n    \"metric\": \"active_users\",\n    \"timeframe\":"
       }
     ]
   },
   "anti_hallucination": {
-    "response": "Je vais corriger les faits non vérifiés.\n\nIl n'y a pas eu de ventes réelles car le magasin était fermé pour inventaire, ce qui signifie qu'il n'a pas été ouvert au public. \n\nEn revanche, il a fait très chaud à Sfax, avec une température de 38°C et un soleil ensoleillé.",
+    "response": "Je vais corriger les faits pour vous fournir une réponse précise.\n\nLe magasin n'a pas réalisé de ventes le 11 juin, car il était fermé pour inventaire. De plus, il n'y a pas neigé à Sfax, mais plutôt un temps ensoleillé avec une température de 38°C.",
     "mentions_correct_sales": false,
     "invented_snow": false,
     "mentions_correct_weather": true,
     "hallucination_free": false
   },
   "context_latency": {
-    "throughput_short_ctx": 20.8,
-    "throughput_long_ctx": 13.0,
-    "degradation_pct": 37.5
+    "throughput_short_ctx": 21.0,
+    "throughput_long_ctx": 13.4,
+    "degradation_pct": 36.2
   },
   "scoring": {
-    "score_100": 67,
+    "score_100": 80,
     "ttft_pass": true,
-    "throughput_pass": false,
+    "throughput_pass": true,
     "json_pass": false,
     "hallucination_free": false,
     "recommended": false
