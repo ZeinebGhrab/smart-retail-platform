@@ -29,8 +29,6 @@ import Dashboard from '../features/dashboard/Dashboard';
 import Login from '../features/auth/Login';
 import Register from '../features/auth/Register';
 import PrivateRoute from '../components/PrivateRoute';
-import Alerts from '../features/alerts/Alerts';
-import AlertDetail from '../features/alerts/AlertDetail';
 import { bootstrapAuth, isAuthenticated } from '../services/auth';
 import { useFirebaseMessaging } from '../hooks/useFirebaseMessaging';
 
@@ -76,8 +74,6 @@ const App: React.FC = () => {
           <PrivateRoute exact path="/dashboard"   component={Dashboard}  />
           <PrivateRoute exact path="/chat"        component={ChatIA}     />
           <PrivateRoute exact path="/predictions" component={Historique} />
-          <PrivateRoute exact path="/alerts"      component={Alerts}     />
-          <PrivateRoute exact path="/alerts/:id"  component={AlertDetail} />
 
           {/* CORRECTIF : RootRedirect relit isAuthenticated() à chaque render */}
           <Route exact path="/" component={RootRedirect} />

@@ -13,6 +13,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='fcmtoken',
             name='token',
-            field=models.TextField(),
+             field=models.CharField(help_text="Token FCM unique de l'appareil", max_length=255, unique=True),
         ),
     ]

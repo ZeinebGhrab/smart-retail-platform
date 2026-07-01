@@ -6,7 +6,6 @@ import './TabBar.css';
 
 const TABS = [
   { label: 'Dashboard', path: '/dashboard', icon: 'ti-layout-dashboard' },
-  { label: 'Alertes', path: '/alerts', icon: 'ti-alert-triangle' },
   { label: 'Chat IA', path: '/chat', icon: 'ti-message-chatbot' },
   { label: 'Prédictions', path: '/predictions', icon: 'ti-chart-histogram' },
 ];
@@ -23,12 +22,7 @@ const TabBar: React.FC = () => {
   }
 
   const go = (path: string) => ionRouter.push(path);
-  // const active = (path: string) => location.pathname === path;
-  // L'onglet "Alertes" reste actif aussi sur les pages de détail (/alerts/:id).
-  const active = (path: string) =>
-    path === '/alerts'
-      ? location.pathname.startsWith('/alerts')
-      : location.pathname === path;
+  const active = (path: string) => location.pathname === path;
   const handleLogout = async () => {
     setLoading(true);
     try {

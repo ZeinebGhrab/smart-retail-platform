@@ -16,7 +16,6 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
 
-from .managers import UserManager
 
 
 class User(AbstractUser):
@@ -29,7 +28,6 @@ class User(AbstractUser):
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []  # le formulaire d'inscription gère firstName/lastName/storeName
 
-    objects = UserManager()
 
     class Meta:
         verbose_name = "Utilisateur"
